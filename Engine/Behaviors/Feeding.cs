@@ -125,19 +125,31 @@ public class HarvestBehavior : IBehavior
     }
 }
 
-// Behavior: when hungry, eat a ResourceItem underfoot we can eat,
-// or walk toward the nearest edible food source.
+// Behavior: when hungry, eat a ResourceItem underfoot, or walk (via BFS) toward
+// the nearest edible food we can actually reach. Ties break on cluster density;
+// further ties break randomly.
 public class FeedBehavior : IBehavior
 {
     public int Priority => 30;
 
-    // Cached between WouldAct and Act — which food to eat or approach.
+    private Random rng;
+
+    // Cached between WouldAct and Act — what we chose and the next step to take.
     private int cachedFoodId = -1;
     private bool cachedFoodIsUnderfoot;
+    private int cachedStepDx;
+    private int cachedStepDy;
+
+    public FeedBehavior(Random rng)
+    {
+        this.rng = rng;
+    }
 
     // ----------------------------------------------------------------------------
-    // Hungry AND (edible food underfoot OR visible edible food)? Cache what and where.
-    // Prefers food underfoot — eating beats moving.
+    // Hungry AND (edible food underfoot OR a reachable edible we can BFS to)?
+    // Underfoot wins instantly. Otherwise flood cells by walking distance, then
+    // among reachable edibles prefer the nearest, prefer the densest cluster,
+    // and pick randomly from whatever survives both tiebreaks.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -161,28 +173,64 @@ public class FeedBehavior : IBehavior
             return true;
         }
 
-        // Otherwise: look for the nearest edible food source we could walk toward.
-        // Edible = a ResourceItem (loose food) or a harvestable with matching resourceType.
+        // Otherwise: flood reachable cells out to vision range. IsCreatureSpawnable
+        // is the same passability the mover uses — walls, water, and other Solids block.
         if (!World.HasComponent<Sensing>(id)) return false;
         int range = World.GetComponent<Sensing>(id).VisionRange;
+        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.IsCreatureSpawnable);
 
-        cachedFoodId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
-            (World.HasComponent<ResourceItem>(other) && diet.Accepts(World.GetComponent<ResourceItem>(other).resourceType))
-            || (World.HasComponent<Drops>(other) && !World.HasComponent<Health>(other) && diet.Accepts(World.GetComponent<Drops>(other).resourceType)));
+        // Collect every edible entity sitting in a reached cell, with its walking distance.
+        List<(int foodId, int dist)> reachable = new List<(int, int)>();
+        foreach (KeyValuePair<(int x, int y), int> entry in bfs.distance)
+        {
+            foreach (int other in World.EntitiesAt(entry.Key.x, entry.Key.y))
+            {
+                if (other == id) continue;
+                if (!IsEdible(other, diet)) continue;
+                reachable.Add((other, entry.Value));
+            }
+        }
 
-        if (cachedFoodId < 0) return false;
+        if (reachable.Count == 0) return false;
 
+        // Keep only edibles tied for the shortest walking distance.
+        int bestDist = int.MaxValue;
+        foreach ((int foodId, int dist) in reachable)
+            if (dist < bestDist) bestDist = dist;
+        List<int> nearest = new List<int>();
+        foreach ((int foodId, int dist) in reachable)
+            if (dist == bestDist) nearest.Add(foodId);
+
+        // First tiebreak: most edible 8-neighbors (prefer food in a dense patch).
+        int bestNeighborCount = -1;
+        List<int> topCandidates = new List<int>();
+        foreach (int candidate in nearest)
+        {
+            int n = CountFoodNeighbors(candidate, diet);
+            if (n > bestNeighborCount)
+            {
+                bestNeighborCount = n;
+                topCandidates.Clear();
+            }
+            if (n == bestNeighborCount)
+                topCandidates.Add(candidate);
+        }
+
+        // Final tiebreak: random pick among survivors.
+        cachedFoodId = topCandidates[rng.Next(topCandidates.Count)];
         cachedFoodIsUnderfoot = false;
+
+        // Cache the first step along the BFS path — Act just calls TryMove with it.
+        Position foodPos = World.GetComponent<Position>(cachedFoodId);
+        (cachedStepDx, cachedStepDy) = bfs.FirstStep(foodPos.X, foodPos.Y);
         return true;
     }
 
     // ----------------------------------------------------------------------------
-    // Eat the cached food if it's underfoot; otherwise walk toward it.
+    // Eat the cached food if it's underfoot; otherwise step along the cached path.
     // ----------------------------------------------------------------------------
     public void Act(int id)
     {
-        Position pos = World.GetComponent<Position>(id);
-
         if (cachedFoodIsUnderfoot)
         {
             // Consume the item, restore energy, remove it
@@ -194,7 +242,47 @@ public class FeedBehavior : IBehavior
             return;
         }
 
-        Position foodPos = World.GetComponent<Position>(cachedFoodId);
-        MovementHelper.MoveToward(id, pos, foodPos.X, foodPos.Y);
+        MovementHelper.TryMove(id, cachedStepDx, cachedStepDy);
+    }
+
+    // ----------------------------------------------------------------------------
+    // A loose ResourceItem we'll eat, or a harvestable (Drops without Health) we'll eat?
+    // ----------------------------------------------------------------------------
+    private static bool IsEdible(int id, Diet diet)
+    {
+        if (World.HasComponent<ResourceItem>(id))
+            return diet.Accepts(World.GetComponent<ResourceItem>(id).resourceType);
+        if (World.HasComponent<Drops>(id) && !World.HasComponent<Health>(id))
+            return diet.Accepts(World.GetComponent<Drops>(id).resourceType);
+        return false;
+    }
+
+    // ----------------------------------------------------------------------------
+    // Count of the target's 8 neighbor cells that contain at least one edible.
+    // One increment per cell — a stacked pair of items doesn't inflate the score.
+    // ----------------------------------------------------------------------------
+    private static int CountFoodNeighbors(int targetId, Diet diet)
+    {
+        if (!World.HasComponent<Position>(targetId)) return 0;
+        Position p = World.GetComponent<Position>(targetId);
+
+        int count = 0;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                foreach (int other in World.EntitiesAt(p.X + dx, p.Y + dy))
+                {
+                    if (other == targetId) continue;
+                    if (IsEdible(other, diet))
+                    {
+                        count++;
+                        break;  // one per cell is enough
+                    }
+                }
+            }
+        }
+        return count;
     }
 }

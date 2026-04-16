@@ -27,7 +27,7 @@ public static class Archetypes
         World.AttachComponent(e, new Behaviors(
             new FleeBehavior(),
             new HarvestBehavior(),
-            new FeedBehavior(),
+            new FeedBehavior(rng),
             new BreedBehavior(rng),
             new WanderBehavior(rng)
         ));
@@ -55,7 +55,7 @@ public static class Archetypes
         World.AttachComponent(e, new Behaviors(
             new HuntBehavior(),
             new HarvestBehavior(),
-            new FeedBehavior(),
+            new FeedBehavior(rng),
             new WanderBehavior(rng)
         ));
         World.AttachComponent(e, new Effects(new EnergyDrainEffect()));
