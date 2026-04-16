@@ -23,6 +23,7 @@ public static class Archetypes
         World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 40, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
+        World.AttachComponent(e, new Scheduler { period = 2 });
         World.AttachComponent(e, new Breeding { breedCooldown = 50, breedChance = 0.05, globalCap = 15 });
         World.AttachComponent(e, new Behaviors(
             new FleeBehavior(),
@@ -47,6 +48,7 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Wolf" });
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Species { spawn = CreateWolf });
+        World.AttachComponent(e, new Scheduler { period = 1 });
         World.AttachComponent(e, new Predator(CreateRabbit));
         World.AttachComponent(e, new Sensing(30));
         World.AttachComponent(e, new Health(30));
@@ -75,6 +77,7 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Bush" });
         World.AttachComponent(e, new Walkable());
         World.AttachComponent(e, new Species { spawn = CreateBush });
+        World.AttachComponent(e, new Scheduler { period = 5 });
         World.AttachComponent(e, new Vegetation { spreadChance = 0.05, spawnChance = 0.0005, localCap = 2, localRadius = 2 });
         World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 50, dropSpriteId = "berries" });
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));

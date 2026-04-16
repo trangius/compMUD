@@ -36,14 +36,23 @@ public static class World
     }
 
     // ----------------------------------------------------------------------------
-    // Advance the world by one step: each entity picks one action, then energy drains.
+    // Advance the world by one step. Two passes in order:
+    //   1. Actions — each entity DUE this tick (per its Scheduler) picks ONE
+    //      behavior and runs it. Scheduler.period gates how often an entity is
+    //      due; entities without a Scheduler fall back to "act every tick".
+    //   2. Effects — run on every entity every tick regardless of pace (wall-
+    //      clock drain/decay/aging). Effects don't know about Scheduler.
     // ----------------------------------------------------------------------------
     public static void Tick()
     {
-        // Every entity picks ONE action per tick — highest-priority willing behavior wins
+        // Pass 1: gated behavior dispatch
         foreach (int id in AllWithComponent<Behaviors>())
         {
             if (!EntityExists(id)) continue;
+
+            // Scheduler gates the turn — if this entity isn't due yet, skip
+            if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
+                continue;
 
             // Ask every behavior if it wants to act; remember the highest-priority yes
             IBehavior? winner = null;
@@ -59,9 +68,14 @@ public static class World
 
             // Only the winner changes world state this tick
             winner?.Act(id);
+
+            // Push the entity's next action forward by its period. Skip if the
+            // entity no longer exists — a behavior may have destroyed it.
+            if (EntityExists(id) && HasComponent<Scheduler>(id))
+                GetComponent<Scheduler>(id).Reschedule(tickCount);
         }
 
-        // Passive effects: run every effect on every entity (no competition, no priority)
+        // Pass 2: passive effects fire every tick on every entity (wall-clock)
         foreach (int id in AllWithComponent<Effects>())
         {
             if (!EntityExists(id)) continue;

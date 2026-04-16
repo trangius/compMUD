@@ -165,6 +165,11 @@ static void ShowCellInfo(int x, int y)
             Species sp = World.GetComponent<Species>(id);
             tags.Add($"Species:{sp.spawn.Method.Name.Replace("Create", "")}");
         }
+        if (World.HasComponent<Scheduler>(id))
+        {
+            Scheduler sch = World.GetComponent<Scheduler>(id);
+            tags.Add($"Pace:{sch.period} next:{sch.nextActTick}");
+        }
         if (World.HasComponent<Predator>(id))
         {
             Predator pr = World.GetComponent<Predator>(id);
