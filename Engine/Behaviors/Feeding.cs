@@ -55,11 +55,15 @@ public class ResourceItem
     public required int amount;
 }
 
-// State: what resource kinds a creature will eat. Checked by FeedBehavior and HarvestBehavior.
+// State: what resource kinds a creature will eat, and at what hunger level it
+// starts seeking food. Checked by FeedBehavior and HarvestBehavior.
+// hungerThreshold = 0.9 → opportunistic (eats whenever below 90% Max Energy);
+// hungerThreshold = 0.3 → stubborn browser (only eats when near starving).
 // Plugins can pass their own ResourceCategory instances — extensible without engine changes.
 public class Diet
 {
     public HashSet<ResourceCategory> allowed;
+    public double hungerThreshold = 0.6;  // start seeking food at this fraction of Max Energy
 
     public Diet(params ResourceCategory[] kinds)
     {
@@ -72,6 +76,15 @@ public class Diet
     public bool Accepts(ResourceCategory resourceType)
     {
         return allowed.Contains(resourceType);
+    }
+
+    // ----------------------------------------------------------------------------
+    // Is the given Energy below this creature's hunger threshold? Used by
+    // HarvestBehavior and FeedBehavior to decide whether to seek food this tick.
+    // ----------------------------------------------------------------------------
+    public bool IsHungry(Energy energy)
+    {
+        return energy.Current < energy.Max * hungerThreshold;
     }
 }
 
@@ -91,10 +104,10 @@ public class HarvestBehavior : IBehavior
     {
         if (!World.HasComponent<Energy>(id) || !World.HasComponent<Position>(id) || !World.HasComponent<Diet>(id)) return false;
 
-        Energy energy = World.GetComponent<Energy>(id);
-        if (energy.Current >= energy.Max * 0.6) return false;
-
         Diet diet = World.GetComponent<Diet>(id);
+        Energy energy = World.GetComponent<Energy>(id);
+        if (!diet.IsHungry(energy)) return false;
+
         Position pos = World.GetComponent<Position>(id);
 
         // Harvestable = has Drops but no Health (a bush, not a live creature) AND we eat its kind
@@ -155,10 +168,10 @@ public class FeedBehavior : IBehavior
     {
         if (!World.HasComponent<Energy>(id) || !World.HasComponent<Position>(id) || !World.HasComponent<Diet>(id)) return false;
 
-        Energy energy = World.GetComponent<Energy>(id);
-        if (energy.Current >= energy.Max * 0.6) return false;
-
         Diet diet = World.GetComponent<Diet>(id);
+        Energy energy = World.GetComponent<Energy>(id);
+        if (!diet.IsHungry(energy)) return false;
+
         Position pos = World.GetComponent<Position>(id);
 
         // First: any edible ResourceItem underfoot we can eat right now?

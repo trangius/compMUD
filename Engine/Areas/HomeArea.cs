@@ -54,18 +54,34 @@ public static class HomeArea
             }
         }
 
-        // Scatter trees
+        // Trees — a dense forest in the NW corner (wolves emerge from and retreat
+        // to these cells), plus a few scattered trees across the rest of the map.
         int treeCount = (width * height) / 20;
-        for (int i = 0; i < treeCount; i++)
+        int forestTrees = treeCount * 2 / 3;
+        int scatteredTrees = treeCount - forestTrees;
+
+        // Dense cluster in NW corner — high chance of trees inside this box
+        int forestMaxX = width / 3;
+        int forestMaxY = height * 2 / 3;
+        for (int i = 0; i < forestTrees; i++)
         {
-            int x = rng.Next(2, width - 2);
+            int x = rng.Next(2, forestMaxX);
+            int y = rng.Next(2, forestMaxY);
+            if (!World.IsOpenGround(x, y)) continue;
+            Archetypes.CreateTree(x, y);
+        }
+
+        // A few scattered trees elsewhere so the map isn't a featureless meadow
+        for (int i = 0; i < scatteredTrees; i++)
+        {
+            int x = rng.Next(forestMaxX, width - 2);
             int y = rng.Next(2, height - 2);
             if (!World.IsOpenGround(x, y)) continue;
             Archetypes.CreateTree(x, y);
         }
 
         // Scatter bushes
-        int bushCount = (width * height) / 40;
+        int bushCount = (width * height) / 25;
         for (int i = 0; i < bushCount; i++)
         {
             int x = rng.Next(2, width - 2);
@@ -101,11 +117,9 @@ public static class HomeArea
             }
         }
 
-        // Spawn wolves
-        for (int i = 0; i < 3; i++)
-        {
-            (int wx, int wy) = World.FindCell(World.IsCreatureSpawnable, rng);
-            if (wx >= 0) Archetypes.CreateWolf(wx, wy);
-        }
+        // Wolf raids — no persistent wolves. The spawner singleton rolls a small
+        // chance each tick of releasing a wolf from a random tree. That wolf hunts
+        // one rabbit, then retreats to the forest and vanishes.
+        Archetypes.CreateWolfRaidSpawner();
     }
 }

@@ -19,12 +19,12 @@ public static class Archetypes
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Sensing(15));
         World.AttachComponent(e, new Health(10));
-        World.AttachComponent(e, new Energy(100));
-        World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 40, dropSpriteId = "corpse" });
+        World.AttachComponent(e, new Energy(1500));
+        World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 600, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
-        World.AttachComponent(e, new Scheduler { period = 2 });
-        World.AttachComponent(e, new Breeding { breedCooldown = 50, breedChance = 0.05, globalCap = 15 });
+        World.AttachComponent(e, new Scheduler { period = 15 });
+        World.AttachComponent(e, new Breeding { breedCooldown = 400, breedChance = 0.1, globalCap = 12 });
         World.AttachComponent(e, new Behaviors(
             new FleeBehavior(),
             new HarvestBehavior(),
@@ -48,21 +48,36 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Wolf" });
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Species { spawn = CreateWolf });
-        World.AttachComponent(e, new Scheduler { period = 1 });
+        World.AttachComponent(e, new Scheduler { period = 10 });
         World.AttachComponent(e, new Predator(CreateRabbit));
-        World.AttachComponent(e, new Sensing(30));
+        World.AttachComponent(e, new RaidingWolf());
+        World.AttachComponent(e, new Sensing(100));
         World.AttachComponent(e, new Health(30));
         World.AttachComponent(e, new Attacking(8));
-        World.AttachComponent(e, new Energy(100));
-        World.AttachComponent(e, new Drops { name = "Wolf corpse", resourceType = Resources.Meat, amount = 20, dropSpriteId = "corpse" });
-        World.AttachComponent(e, new Diet(Resources.Meat));
+        World.AttachComponent(e, new Energy(1000));
+        World.AttachComponent(e, new Drops { name = "Wolf corpse", resourceType = Resources.Meat, amount = 400, dropSpriteId = "corpse" });
+        World.AttachComponent(e, new Diet(Resources.Meat) { hungerThreshold = 0.9 });
         World.AttachComponent(e, new Behaviors(
+            new ReturnToForestBehavior(),
             new HuntBehavior(),
             new HarvestBehavior(),
             new FeedBehavior(rng),
             new WanderBehavior(rng)
         ));
         World.AttachComponent(e, new Effects(new EnergyDrainEffect()));
+        return e;
+    }
+
+    // ----------------------------------------------------------------------------
+    // Wolf raid spawner: a singleton entity with no position, just an Effect that
+    // rolls a per-tick chance of unleashing a wolf from a random tree cell.
+    // Keeps area-level event logic declarative — HomeArea just creates one.
+    // ----------------------------------------------------------------------------
+    public static int CreateWolfRaidSpawner()
+    {
+        int e = World.CreateEntity();
+        World.AttachComponent(e, new Named { name = "Wolf raid spawner" });
+        World.AttachComponent(e, new Effects(new WolfRaidEffect(rng)));
         return e;
     }
 
@@ -77,9 +92,9 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Bush" });
         World.AttachComponent(e, new Walkable());
         World.AttachComponent(e, new Species { spawn = CreateBush });
-        World.AttachComponent(e, new Scheduler { period = 5 });
-        World.AttachComponent(e, new Vegetation { spreadChance = 0.05, spawnChance = 0.0005, localCap = 2, localRadius = 2 });
-        World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 50, dropSpriteId = "berries" });
+        World.AttachComponent(e, new Scheduler { period = 30 });
+        World.AttachComponent(e, new Vegetation { spreadChance = 0.1, spawnChance = 0.0005, localCap = 2, localRadius = 2 });
+        World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 750, dropSpriteId = "berries" });
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));
         return e;
     }
@@ -87,6 +102,7 @@ public static class Archetypes
     // ----------------------------------------------------------------------------
     // A tree: inert scenery. Trees don't regrow on any game-reasonable timescale,
     // so they have no Vegetation or Behaviors — just a passable tile that renders.
+    // The Tree marker lets raiding wolves find forest cells to spawn at / retreat to.
     // ----------------------------------------------------------------------------
     public static int CreateTree(int x, int y)
     {
@@ -94,6 +110,7 @@ public static class Archetypes
         World.AttachComponent(e, new Position(x, y));
         World.AttachComponent(e, new Appearance { spriteId = "tree", layer = 2 });
         World.AttachComponent(e, new Walkable());
+        World.AttachComponent(e, new Tree());
         return e;
     }
 
