@@ -24,9 +24,13 @@ public class BreedBehavior : IBehavior
     private int cachedMateId = -1;
     private bool cachedMateIsAdjacent;
 
-    // Where we look for an adjacent mate: the 4 cardinal neighbors.
-    private static readonly (int dx, int dy)[] adjacentOffsets =
-        { (0, -1), (0, 1), (1, 0), (-1, 0) };
+    // Where we look for an adjacent mate: 8-connected neighbors (diagonals too).
+    // Matches 8-connected movement — a rabbit that stepped diagonally next to a
+    // potential mate shouldn't have to shuffle cardinally first to mate.
+    private static readonly (int dx, int dy)[] adjacentOffsets = {
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (1, -1), (1, 1), (-1, -1), (-1, 1)
+    };
 
     public BreedBehavior(Random rng)
     {
@@ -123,7 +127,7 @@ public class BreedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Check same cell and four neighbors for a same-species mate off cooldown.
+    // Check the 8 neighbors for a same-species mate off cooldown.
     // ----------------------------------------------------------------------------
     private int FindAdjacentMate(int id, Position pos, Breeding breeding, Species species)
     {

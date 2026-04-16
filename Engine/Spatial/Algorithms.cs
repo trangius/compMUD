@@ -7,8 +7,12 @@ namespace Engine;
 // ----------------------------------------------------------------------------
 public static class Algorithms
 {
-    // Four-cardinal step offsets. Matches MovementHelper.directions.
-    private static readonly (int dx, int dy)[] directions = { (0, -1), (0, 1), (1, 0), (-1, 0) };
+    // 8-connected step offsets. Matches MovementHelper.directions — diagonals
+    // expand at the same cost as cardinals, so BFS returns Chebyshev-distance paths.
+    private static readonly (int dx, int dy)[] directions = {
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (1, -1), (1, 1), (-1, -1), (-1, 1)
+    };
 
     // ----------------------------------------------------------------------------
     // Flood outward from (startX, startY) by BFS, up to maxRange steps, through

@@ -24,7 +24,12 @@ public class GrowBehavior : IBehavior
     private int cachedTargetX;
     private int cachedTargetY;
 
-    private static readonly (int dx, int dy)[] directions = { (0, -1), (0, 1), (1, 0), (-1, 0) };
+    // 8-connected spread: plants drop seeds into any neighbor cell, diagonals
+    // included. Keeps clusters blobby instead of growing into cardinal-only lines.
+    private static readonly (int dx, int dy)[] directions = {
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (1, -1), (1, 1), (-1, -1), (-1, 1)
+    };
 
     public GrowBehavior(Random rng)
     {

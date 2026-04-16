@@ -26,7 +26,13 @@ public class Solid { }
 // ----------------------------------------------------------------------------
 public static class MovementHelper
 {
-    private static readonly (int dx, int dy)[] directions = { (0, -1), (0, 1), (1, 0), (-1, 0) };
+    // 8-connected step offsets: 4 cardinals + 4 diagonals. Diagonals cost the
+    // same as cardinals in BFS and movement — minor "distance cheat" on long
+    // paths, in exchange for organic-looking clusters and movement paths.
+    private static readonly (int dx, int dy)[] directions = {
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (1, -1), (1, 1), (-1, -1), (-1, 1)
+    };
 
     // ----------------------------------------------------------------------------
     // Try to step one cell. Needs walkable ground AND no Solid occupant at the target.
@@ -59,16 +65,21 @@ public static class MovementHelper
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell closer to the target. Prefer the bigger axis; if that step is
-    // blocked, fall through to the other axis. The fallback keeps movers from
-    // stalling when the preferred direction is blocked by another Solid or a wall.
+    // Step one cell closer to the target. When both axes want progress we try the
+    // diagonal step first (8-connected movement makes that the shortest path).
+    // If the diagonal is blocked, fall through to single-axis moves — bigger
+    // component first, then the other. Keeps movers from stalling when any one
+    // direction is blocked by a Solid or a wall.
     // ----------------------------------------------------------------------------
     public static void MoveToward(int id, Position pos, int targetX, int targetY)
     {
         int dx = Math.Sign(targetX - pos.X);
         int dy = Math.Sign(targetY - pos.Y);
 
-        // Pick the axis we want to try first, then fall through to the other if blocked
+        // Both axes want progress — take a diagonal step if we can
+        if (dx != 0 && dy != 0 && TryMove(id, dx, dy)) return;
+
+        // Single-axis fallback: bigger component first, then the other
         bool preferX = Math.Abs(targetX - pos.X) >= Math.Abs(targetY - pos.Y);
         if (preferX)
         {
@@ -84,9 +95,9 @@ public static class MovementHelper
 
     // ----------------------------------------------------------------------------
     // Step one cell toward the neighbor that's furthest from the threat. Tries
-    // all four cardinals, rejects any that aren't passable, picks the one with
+    // all 8 neighbors, rejects any that aren't passable, picks the one with
     // largest squared-Euclidean distance from the threat. Fixes the "run to wall,
-    // stop" bug — if east is blocked, the fleer picks north or south instead.
+    // stop" bug — if east is blocked, the fleer picks a diagonal or the other axis.
     // ----------------------------------------------------------------------------
     public static void MoveAwayFrom(int id, Position pos, int threatX, int threatY)
     {
