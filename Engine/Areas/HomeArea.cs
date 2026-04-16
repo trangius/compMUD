@@ -65,7 +65,7 @@ public static class HomeArea
         }
 
         // Scatter bushes
-        int bushCount = (width * height) / 15;
+        int bushCount = (width * height) / 40;
         for (int i = 0; i < bushCount; i++)
         {
             int x = rng.Next(2, width - 2);
@@ -74,18 +74,38 @@ public static class HomeArea
             Archetypes.CreateBush(x, y);
         }
 
-        // Spawn rabbits
+        // Spawn rabbits — keep them in one pasture but not stacked. Min distance 2
+        // (squared distance >= 4) between any two rabbits at spawn so they don't
+        // block each other's BFS paths on tick 0.
+        List<(int x, int y)> placedRabbits = new List<(int, int)>();
+        int minRabbitDistSq = 4;
         for (int i = 0; i < 12; i++)
         {
-            (int rx, int ry) = World.FindCell(World.IsCreatureSpawnable, rng);
-            if (rx >= 0) Archetypes.CreateRabbit(rx, ry);
+            // Accept the cell only if it's creature-spawnable AND far enough from every placed rabbit.
+            (int rx, int ry) = World.FindCell((cx, cy) =>
+            {
+                if (!World.IsCreatureSpawnable(cx, cy)) return false;
+                foreach ((int px, int py) in placedRabbits)
+                {
+                    int ddx = cx - px;
+                    int ddy = cy - py;
+                    if (ddx * ddx + ddy * ddy < minRabbitDistSq) return false;
+                }
+                return true;
+            }, rng);
+
+            if (rx >= 0)
+            {
+                Archetypes.CreateRabbit(rx, ry);
+                placedRabbits.Add((rx, ry));
+            }
         }
 
         // Spawn wolves
-        for (int i = 0; i < 3; i++)
-        {
-            (int wx, int wy) = World.FindCell(World.IsCreatureSpawnable, rng);
-            if (wx >= 0) Archetypes.CreateWolf(wx, wy);
-        }
+        // for (int i = 0; i < 3; i++)
+        // {
+        //     (int wx, int wy) = World.FindCell(World.IsCreatureSpawnable, rng);
+        //     if (wx >= 0) Archetypes.CreateWolf(wx, wy);
+        // }
     }
 }

@@ -3,11 +3,13 @@ namespace Engine;
 // State: this entity can breed. The spawn function points at the archetype so
 // babies are freshly constructed — and it IS the species identity: two entities
 // are the same species iff their spawn delegate points at the same method.
+// globalCap sets a map-wide ceiling for the species — once reached, breeding stalls.
 public class Breeding
 {
     public int breedCooldown = 250;
     public double breedChance = 0.008;
     public int lastBreedTick = -250;
+    public int globalCap = int.MaxValue;  // max same-species entities allowed in the world
     public required Func<int, int, int> spawn;  // archetype's Create method for this species
 }
 
@@ -53,6 +55,11 @@ public class BreedBehavior : IBehavior
             Energy energy = World.GetComponent<Energy>(id);
             if (energy.Current <= energy.Max * minEnergyToBreed) return false;
         }
+
+        // Global population gate — species at its map-wide cap doesn't reproduce.
+        // Positive check: "is there room for one more of me?" rather than blocking.
+        if (breeding.globalCap < int.MaxValue && CountSpecies(breeding.spawn) >= breeding.globalCap)
+            return false;
 
         Position pos = World.GetComponent<Position>(id);
 
@@ -111,6 +118,20 @@ public class BreedBehavior : IBehavior
         // Mate exists but isn't adjacent — walk toward
         Position matePos = World.GetComponent<Position>(cachedMateId);
         MovementHelper.MoveToward(id, pos, matePos.X, matePos.Y);
+    }
+
+    // ----------------------------------------------------------------------------
+    // How many entities share this species (same spawn delegate)? Cheap scan —
+    // called only when a ready breeder checks the global cap.
+    // ----------------------------------------------------------------------------
+    private static int CountSpecies(Func<int, int, int> speciesSpawn)
+    {
+        int count = 0;
+        foreach (int other in World.AllWithComponent<Breeding>())
+        {
+            if (World.GetComponent<Breeding>(other).spawn == speciesSpawn) count++;
+        }
+        return count;
     }
 
     // ----------------------------------------------------------------------------

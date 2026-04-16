@@ -297,6 +297,7 @@ public static class World
     // ----------------------------------------------------------------------------
     // Cell predicate — a creature can be placed here: walkable ground, no Solid.
     // Trees/bushes pass (not Solid). Other creatures fail (Solid). Walls fail (not walkable).
+    // TODO: Make general, not just for walkable. What about fishes who spawn in water?
     // ----------------------------------------------------------------------------
     public static bool IsCreatureSpawnable(int x, int y)
     {
