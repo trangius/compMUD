@@ -102,10 +102,10 @@ public static class HomeArea
         }
 
         // Spawn wolves
-        // for (int i = 0; i < 3; i++)
-        // {
-        //     (int wx, int wy) = World.FindCell(World.IsCreatureSpawnable, rng);
-        //     if (wx >= 0) Archetypes.CreateWolf(wx, wy);
-        // }
+        for (int i = 0; i < 3; i++)
+        {
+            (int wx, int wy) = World.FindCell(World.IsCreatureSpawnable, rng);
+            if (wx >= 0) Archetypes.CreateWolf(wx, wy);
+        }
     }
 }

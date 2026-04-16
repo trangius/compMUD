@@ -160,8 +160,17 @@ static void ShowCellInfo(int x, int y)
         if (World.HasComponent<Attacking>(id)) tags.Add($"Atk:{World.GetComponent<Attacking>(id).Damage}");
         if (World.HasComponent<Walkable>(id)) tags.Add("Walkable");
         if (World.HasComponent<Solid>(id)) tags.Add("Solid");
-        if (World.HasComponent<Flees>(id)) tags.Add("Flees");
-        if (World.HasComponent<Hunts>(id)) tags.Add("Hunts");
+        if (World.HasComponent<Species>(id))
+        {
+            Species sp = World.GetComponent<Species>(id);
+            tags.Add($"Species:{sp.spawn.Method.Name.Replace("Create", "")}");
+        }
+        if (World.HasComponent<Predator>(id))
+        {
+            Predator pr = World.GetComponent<Predator>(id);
+            string preyNames = string.Join(",", pr.hunts.Select(f => f.Method.Name.Replace("Create", "")));
+            tags.Add($"Predator:[{preyNames}]");
+        }
         if (World.HasComponent<Corpse>(id)) tags.Add("Corpse");
         if (World.HasComponent<Diet>(id))
         {

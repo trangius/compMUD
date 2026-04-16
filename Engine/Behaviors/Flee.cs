@@ -1,9 +1,8 @@
 namespace Engine;
 
-// State: this entity is prey. Used by HuntBehavior to find targets.
-public class Flees { }
-
-// Behavior: run from the nearest predator.
+// Behavior: run from the nearest creature whose prey list includes my species.
+// No dedicated "Prey" marker — an entity qualifies as prey by being on someone's
+// Predator.hunts. That way one source of truth decides the wolf↔rabbit pairing.
 public class FleeBehavior : IBehavior
 {
     public int Priority => 100;
@@ -12,17 +11,21 @@ public class FleeBehavior : IBehavior
     private int cachedThreatId = -1;
 
     // ----------------------------------------------------------------------------
-    // Look for the nearest predator. Cache it for Act.
+    // Look for the nearest predator whose hunt list contains this entity's species.
+    // Cache it for Act.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
-        if (!World.HasComponent<Sensing>(id) || !World.HasComponent<Position>(id)) return false;
+        if (!World.HasComponent<Sensing>(id) || !World.HasComponent<Species>(id) || !World.HasComponent<Position>(id)) return false;
 
+        Species species = World.GetComponent<Species>(id);
         Position pos = World.GetComponent<Position>(id);
         int range = World.GetComponent<Sensing>(id).VisionRange;
 
         cachedThreatId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
-            other != id && World.HasComponent<Hunts>(other));
+            other != id
+            && World.HasComponent<Predator>(other)
+            && World.GetComponent<Predator>(other).Hunts(species.spawn));
 
         return cachedThreatId >= 0;
     }
