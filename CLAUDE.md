@@ -123,3 +123,7 @@ A poisoned rabbit corpse is an **Entity** (the body) with **States** (`Corpse`),
   Bad: "Execute harvesting behavior on the target Drops entity"
 - Flag gotchas — things that would trip someone up or break if changed.
 - For types in the five buckets, start the class comment with the bucket name as a prefix: `// State: ...`, `// Behavior: ...`, `// Effect: ...`, `// Category: ...`. Makes taxonomy visible at a glance without adding interface plumbing.
+
+## Git
+When asked to suggest commit message: check git diff and suggest a non complex, one line, straightforward, non jargon commit message
+
