@@ -59,32 +59,59 @@ public static class MovementHelper
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell closer to the target.
+    // Step one cell closer to the target. Prefer the bigger axis; if that step is
+    // blocked, fall through to the other axis. The fallback keeps movers from
+    // stalling when the preferred direction is blocked by another Solid or a wall.
     // ----------------------------------------------------------------------------
     public static void MoveToward(int id, Position pos, int targetX, int targetY)
     {
         int dx = Math.Sign(targetX - pos.X);
         int dy = Math.Sign(targetY - pos.Y);
 
-        if (Math.Abs(targetX - pos.X) >= Math.Abs(targetY - pos.Y))
-            TryMove(id, dx, 0);
+        // Pick the axis we want to try first, then fall through to the other if blocked
+        bool preferX = Math.Abs(targetX - pos.X) >= Math.Abs(targetY - pos.Y);
+        if (preferX)
+        {
+            if (dx != 0 && TryMove(id, dx, 0)) return;
+            if (dy != 0) TryMove(id, 0, dy);
+        }
         else
-            TryMove(id, 0, dy);
+        {
+            if (dy != 0 && TryMove(id, 0, dy)) return;
+            if (dx != 0) TryMove(id, dx, 0);
+        }
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell away from the threat. Solid prevents same-cell, so at least
-    // one of dx/dy is non-zero when this runs.
+    // Step one cell toward the neighbor that's furthest from the threat. Tries
+    // all four cardinals, rejects any that aren't passable, picks the one with
+    // largest squared-Euclidean distance from the threat. Fixes the "run to wall,
+    // stop" bug — if east is blocked, the fleer picks north or south instead.
     // ----------------------------------------------------------------------------
     public static void MoveAwayFrom(int id, Position pos, int threatX, int threatY)
     {
-        int dx = Math.Sign(pos.X - threatX);
-        int dy = Math.Sign(pos.Y - threatY);
+        int bestScore = int.MinValue;
+        (int dx, int dy) bestStep = (0, 0);
+        bool found = false;
 
-        if (dx != 0)
-            TryMove(id, dx, 0);
-        else if (dy != 0)
-            TryMove(id, 0, dy);
+        foreach ((int dx, int dy) offset in directions)
+        {
+            int nx = pos.X + offset.dx;
+            int ny = pos.Y + offset.dy;
+            if (!World.IsCreatureSpawnable(nx, ny)) continue;
+
+            int ddx = nx - threatX;
+            int ddy = ny - threatY;
+            int score = ddx * ddx + ddy * ddy;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestStep = offset;
+                found = true;
+            }
+        }
+
+        if (found) TryMove(id, bestStep.dx, bestStep.dy);
     }
 
     // ----------------------------------------------------------------------------
