@@ -1,16 +1,16 @@
 namespace Engine;
 
 // State: living vegetation that spreads to nearby cells and occasionally spawns
-// new plants elsewhere. The spawn function points at the plant's archetype so
-// each sprout is freshly built. localCap + localRadius put a ceiling on cluster
-// density — once a neighborhood is saturated, new growth has to go elsewhere.
+// new plants elsewhere. Species identity lives on the separate Species component;
+// Vegetation only carries growth rates and the cluster cap. localCap + localRadius
+// put a ceiling on cluster density — once a neighborhood is saturated, new growth
+// has to go elsewhere.
 public class Vegetation
 {
     public double spreadChance = 0.01;
     public double spawnChance = 0.0;
     public int localCap = int.MaxValue;  // max same-species count tolerated in target's neighborhood
     public int localRadius = 2;          // Chebyshev radius that defines "neighborhood"
-    public required Func<int, int, int> spawn;  // archetype's Create method for this plant
 }
 
 // Behavior: try to spread to an adjacent open cell, or spawn at a random open cell.
@@ -38,9 +38,10 @@ public class GrowBehavior : IBehavior
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
-        if (!World.HasComponent<Vegetation>(id) || !World.HasComponent<Position>(id)) return false;
+        if (!World.HasComponent<Vegetation>(id) || !World.HasComponent<Species>(id) || !World.HasComponent<Position>(id)) return false;
 
         Vegetation veg = World.GetComponent<Vegetation>(id);
+        Species species = World.GetComponent<Species>(id);
         Position pos = World.GetComponent<Position>(id);
 
         // First try: spread to an adjacent cell
@@ -50,7 +51,7 @@ public class GrowBehavior : IBehavior
             int nx = pos.X + dir.dx;
             int ny = pos.Y + dir.dy;
 
-            if (World.IsOpenGround(nx, ny) && HasRoom(nx, ny, veg, id))
+            if (World.IsOpenGround(nx, ny) && HasRoom(nx, ny, veg, species, id))
             {
                 cachedTargetX = nx;
                 cachedTargetY = ny;
@@ -65,7 +66,7 @@ public class GrowBehavior : IBehavior
             int x = rng.Next(2, World.mapWidth - 2);
             int y = rng.Next(2, World.mapHeight - 2);
 
-            if (World.IsOpenGround(x, y) && HasRoom(x, y, veg, id))
+            if (World.IsOpenGround(x, y) && HasRoom(x, y, veg, species, id))
             {
                 cachedTargetX = x;
                 cachedTargetY = y;
@@ -77,28 +78,14 @@ public class GrowBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Is the target cell's neighborhood below the species' local cap? Counts same-
-    // species vegetation within localRadius of (tx, ty). Positive check — we want
-    // to see "room remaining", not "am I blocked by too many bushes".
+    // Is the target cell's neighborhood below the species' local cap? Positive
+    // check — we ask "room remaining?", not "am I blocked?". Delegates the
+    // species-match counting to Species.CountInRadius.
     // ----------------------------------------------------------------------------
-    private static bool HasRoom(int tx, int ty, Vegetation veg, int selfId)
+    private static bool HasRoom(int tx, int ty, Vegetation veg, Species species, int selfId)
     {
         if (veg.localCap == int.MaxValue) return true;
-
-        int count = 0;
-        for (int dx = -veg.localRadius; dx <= veg.localRadius; dx++)
-        {
-            for (int dy = -veg.localRadius; dy <= veg.localRadius; dy++)
-            {
-                foreach (int other in World.EntitiesAt(tx + dx, ty + dy))
-                {
-                    if (other == selfId) continue;
-                    if (!World.HasComponent<Vegetation>(other)) continue;
-                    if (World.GetComponent<Vegetation>(other).spawn == veg.spawn) count++;
-                }
-            }
-        }
-        return count < veg.localCap;
+        return Species.CountInRadius(tx, ty, veg.localRadius, species.spawn, selfId) < veg.localCap;
     }
 
     // ----------------------------------------------------------------------------
@@ -106,7 +93,7 @@ public class GrowBehavior : IBehavior
     // ----------------------------------------------------------------------------
     public void Act(int id)
     {
-        Vegetation veg = World.GetComponent<Vegetation>(id);
-        veg.spawn(cachedTargetX, cachedTargetY);
+        Species species = World.GetComponent<Species>(id);
+        species.spawn(cachedTargetX, cachedTargetY);
     }
 }

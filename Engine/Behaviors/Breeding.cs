@@ -1,8 +1,7 @@
 namespace Engine;
 
-// State: this entity can breed. The spawn function points at the archetype so
-// babies are freshly constructed — and it IS the species identity: two entities
-// are the same species iff their spawn delegate points at the same method.
+// State: this entity can breed. Species identity lives on the separate Species
+// component; Breeding only carries the reproductive schedule + population cap.
 // globalCap sets a map-wide ceiling for the species — once reached, breeding stalls.
 public class Breeding
 {
@@ -10,7 +9,6 @@ public class Breeding
     public double breedChance = 0.008;
     public int lastBreedTick = -250;
     public int globalCap = int.MaxValue;  // max same-species entities allowed in the world
-    public required Func<int, int, int> spawn;  // archetype's Create method for this species
 }
 
 // Behavior: seek a mate and reproduce.
@@ -36,15 +34,17 @@ public class BreedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Ready to breed (cooldown OK, fed enough) AND a mate is reachable.
-    // If mate is adjacent, roll the breed-chance now — that roll IS the decision.
-    // A failed adjacent roll returns false, letting another behavior run instead.
+    // Ready to breed (cooldown OK, fed enough, below population cap) AND a mate
+    // is reachable. If mate is adjacent, roll the breed-chance now — that roll
+    // IS the decision. A failed adjacent roll returns false, letting another
+    // behavior run instead.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
-        if (!World.HasComponent<Breeding>(id) || !World.HasComponent<Position>(id)) return false;
+        if (!World.HasComponent<Breeding>(id) || !World.HasComponent<Species>(id) || !World.HasComponent<Position>(id)) return false;
 
         Breeding breeding = World.GetComponent<Breeding>(id);
+        Species species = World.GetComponent<Species>(id);
 
         // Cooldown gate
         if (World.tickCount - breeding.lastBreedTick < breeding.breedCooldown) return false;
@@ -58,13 +58,13 @@ public class BreedBehavior : IBehavior
 
         // Global population gate — species at its map-wide cap doesn't reproduce.
         // Positive check: "is there room for one more of me?" rather than blocking.
-        if (breeding.globalCap < int.MaxValue && CountSpecies(breeding.spawn) >= breeding.globalCap)
+        if (breeding.globalCap < int.MaxValue && Species.CountAll(species.spawn) >= breeding.globalCap)
             return false;
 
         Position pos = World.GetComponent<Position>(id);
 
         // Adjacent mate? Roll — if the roll fails, yield this tick to another behavior
-        int adjacentMate = FindAdjacentMate(id, pos, breeding);
+        int adjacentMate = FindAdjacentMate(id, pos, breeding, species);
         if (adjacentMate >= 0)
         {
             if (rng.NextDouble() < breeding.breedChance)
@@ -82,8 +82,9 @@ public class BreedBehavior : IBehavior
 
         cachedMateId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
             other != id
-            && World.HasComponent<Breeding>(other)
-            && World.GetComponent<Breeding>(other).spawn == breeding.spawn);
+            && World.HasComponent<Species>(other)
+            && World.GetComponent<Species>(other).spawn == species.spawn
+            && World.HasComponent<Breeding>(other));
 
         if (cachedMateId < 0) return false;
 
@@ -102,13 +103,14 @@ public class BreedBehavior : IBehavior
         if (cachedMateIsAdjacent)
         {
             Breeding breeding = World.GetComponent<Breeding>(id);
+            Species species = World.GetComponent<Species>(id);
             breeding.lastBreedTick = World.tickCount;
             World.GetComponent<Breeding>(cachedMateId).lastBreedTick = World.tickCount;
 
             // Baby is freshly built from the archetype — full HP and energy by construction.
             // Gotcha: baby spawns at the parent's cell, so two Solids briefly overlap.
             // TryMove gates entry, not placement, so each steps to an empty neighbor on later ticks.
-            int baby = breeding.spawn(pos.X, pos.Y);
+            int baby = species.spawn(pos.X, pos.Y);
             World.GetComponent<Breeding>(baby).lastBreedTick = World.tickCount;  // born on cooldown
 
             World.Log($"{World.GetEntityName(id)} born at ({pos.X},{pos.Y})");
@@ -121,33 +123,20 @@ public class BreedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // How many entities share this species (same spawn delegate)? Cheap scan —
-    // called only when a ready breeder checks the global cap.
-    // ----------------------------------------------------------------------------
-    private static int CountSpecies(Func<int, int, int> speciesSpawn)
-    {
-        int count = 0;
-        foreach (int other in World.AllWithComponent<Breeding>())
-        {
-            if (World.GetComponent<Breeding>(other).spawn == speciesSpawn) count++;
-        }
-        return count;
-    }
-
-    // ----------------------------------------------------------------------------
     // Check same cell and four neighbors for a same-species mate off cooldown.
     // ----------------------------------------------------------------------------
-    private int FindAdjacentMate(int id, Position pos, Breeding breeding)
+    private int FindAdjacentMate(int id, Position pos, Breeding breeding, Species species)
     {
-        foreach (var offset in adjacentOffsets)
+        foreach ((int dx, int dy) offset in adjacentOffsets)
         {
             foreach (int other in World.EntitiesAt(pos.X + offset.dx, pos.Y + offset.dy))
             {
                 if (other == id) continue;
+                if (!World.HasComponent<Species>(other)) continue;
+                if (World.GetComponent<Species>(other).spawn != species.spawn) continue;
                 if (!World.HasComponent<Breeding>(other)) continue;
 
                 Breeding otherBreeding = World.GetComponent<Breeding>(other);
-                if (otherBreeding.spawn != breeding.spawn) continue;
                 if (World.tickCount - otherBreeding.lastBreedTick < breeding.breedCooldown) continue;
 
                 return other;
