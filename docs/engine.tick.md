@@ -14,10 +14,13 @@ For every entity with a `Behaviors` component:
    may also cache target info as a side effect (which prey to bite, which
    bush to walk toward, which direction to flee).
 3. **Highest-priority yes wins.** Among behaviors that returned `true`, take
-   the one with the largest `Priority` value. Run `winner.Act(id)`. Exactly
-   one behavior runs per entity per tick.
+   the one with the largest `Priority` value. Run `winner.Act(id)` and capture
+   the cost it returns (1 = baseline, higher = slower). Exactly one behavior
+   runs per entity per tick.
 4. **Reschedule.** If the entity is still alive and has a `Scheduler`, call
-   `Reschedule(tickCount)` — push its `nextActTick` forward by `period`.
+   `Reschedule(tickCount, cost)` — push its `nextActTick` forward by
+   `period × cost`. A wolf biting (cost 2) waits twice as long before its
+   next turn as a wolf stepping (cost 1). See `engine.scheduler.md`.
 
 Entities with no willing behavior do nothing that tick (e.g. `RestBehavior`
 returns false for a hungry rabbit, `WanderBehavior` is always willing as a

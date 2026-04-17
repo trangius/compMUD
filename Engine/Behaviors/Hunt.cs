@@ -136,9 +136,10 @@ public class HuntBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Adjacent case: bite. Walking case: step along the cached BFS path.
+    // Adjacent case: bite (cost 3 — the predator commits to an attack, takes
+    // longer than a step). Walking case: step along the cached BFS path (cost 1).
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         if (cachedPreyAdjacent)
         {
@@ -153,9 +154,10 @@ public class HuntBehavior : IBehavior
             // Raider mission complete — flip the flag and ReturnToForest takes over next tick
             if (killed && World.HasComponent<RaidingWolf>(id))
                 World.GetComponent<RaidingWolf>(id).hasKilled = true;
-            return;
+            return 3;
         }
 
         MovementHelper.TryMove(id, cachedStepDx, cachedStepDy);
+        return 1;
     }
 }

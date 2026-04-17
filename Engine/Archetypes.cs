@@ -19,7 +19,7 @@ public static class Archetypes
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Sensing(15));
         World.AttachComponent(e, new Health(10));
-        World.AttachComponent(e, new Energy(1500));
+        World.AttachComponent(e, new Energy(3000));
         World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 600, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
@@ -94,7 +94,7 @@ public static class Archetypes
         World.AttachComponent(e, new Species { spawn = CreateBush });
         World.AttachComponent(e, new Scheduler { period = 30 });
         World.AttachComponent(e, new Vegetation { spreadChance = 0.1, spawnChance = 0.0005, localCap = 2, localRadius = 2 });
-        World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 750, dropSpriteId = "berries" });
+        World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 1500, dropSpriteId = "berries" });
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));
         return e;
     }

@@ -24,7 +24,9 @@ cross-cutting (like `Species`), give it its own file at `Engine/`.
 
 **New Behaviors**: one class per behavior, in `Engine/Behaviors/Foo.cs`.
 Implement `IBehavior` — fields for cached target info, `Priority` property,
-`WouldAct(int id)`, `Act(int id)`.
+`WouldAct(int id)`, and `int Act(int id)`. `Act` returns the action's cost
+(1 = baseline; return higher to make the action take longer before the
+entity's next turn — see `engine.scheduler.md`).
 
 **New Effects**: `Engine/Effects/Foo.cs` (or beside the behavior it pairs
 with — judgment call). Implement `IEffect` — `Apply(int id)`.

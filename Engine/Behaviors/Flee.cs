@@ -31,12 +31,13 @@ public class FleeBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell away from the cached threat.
+    // Step one cell away from the cached threat. Cost 1 — panic is quick.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         Position pos = World.GetComponent<Position>(id);
         Position threatPos = World.GetComponent<Position>(cachedThreatId);
         MovementHelper.MoveAwayFrom(id, pos, threatPos.X, threatPos.Y);
+        return 1;
     }
 }

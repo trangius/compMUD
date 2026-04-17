@@ -97,10 +97,11 @@ public class BreedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // If the cached mate is adjacent, mate and spawn a baby. Otherwise walk toward.
+    // If the cached mate is adjacent, mate and spawn a baby (cost 8 — a committed
+    // act, the creature pauses). Otherwise walk toward the mate (cost 1 — step).
     // Both parents go on cooldown after mating.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         Position pos = World.GetComponent<Position>(id);
 
@@ -118,12 +119,13 @@ public class BreedBehavior : IBehavior
             World.GetComponent<Breeding>(baby).lastBreedTick = World.tickCount;  // born on cooldown
 
             World.Log($"{World.GetEntityName(id)} born at ({pos.X},{pos.Y})");
-            return;
+            return 8;
         }
 
         // Mate exists but isn't adjacent — walk toward
         Position matePos = World.GetComponent<Position>(cachedMateId);
         MovementHelper.MoveToward(id, pos, matePos.X, matePos.Y);
+        return 1;
     }
 
     // ----------------------------------------------------------------------------

@@ -95,10 +95,12 @@ public class GrowBehavior : IBehavior
 
     // ----------------------------------------------------------------------------
     // Spawn a fresh plant of the same species at the cached target cell.
+    // Cost 1 — a spread is one plant-action.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         Species species = World.GetComponent<Species>(id);
         species.spawn(cachedTargetX, cachedTargetY);
+        return 1;
     }
 }

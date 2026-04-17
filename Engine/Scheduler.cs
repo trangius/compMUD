@@ -19,11 +19,13 @@ public class Scheduler
     }
 
     // ----------------------------------------------------------------------------
-    // Push nextActTick forward by the entity's period. Called by the tick
-    // dispatcher right after the entity's behaviors are run.
+    // Push nextActTick forward by (period × cost). Called by the tick dispatcher
+    // right after the entity's behaviors are run. Cost defaults to 1 — the
+    // baseline; longer actions (bite, mate, cast) pass a higher cost and take
+    // proportionally more ticks before the entity acts again.
     // ----------------------------------------------------------------------------
-    public void Reschedule(int globalTick)
+    public void Reschedule(int globalTick, int cost = 1)
     {
-        nextActTick = globalTick + period;
+        nextActTick = globalTick + period * cost;
     }
 }

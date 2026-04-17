@@ -39,9 +39,11 @@ grows to hundreds of components.
   {
       public int Priority => 30;
       public bool WouldAct(int id) { ... }  // also caches target info
-      public void Act(int id)      { ... }  // uses cached info
+      public int Act(int id)       { ... }  // uses cached info, returns cost
   }
   ```
+  `Act` returns the action's cost in periods (1 = baseline). Slower actions
+  (bite, cast, mate) return higher — see `engine.scheduler.md`.
 - **Priorities** (rabbit example, higher wins):
   - `FleeBehavior` 100, `HarvestBehavior` 40, `FeedBehavior` 30,
     `BreedBehavior` 20, `RestBehavior` 1, `WanderBehavior` 0.

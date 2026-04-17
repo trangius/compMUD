@@ -66,13 +66,14 @@ public static class World
                 }
             }
 
-            // Only the winner changes world state this tick
-            winner?.Act(id);
+            // Only the winner changes world state this tick. Capture its cost —
+            // baseline 1 if no behavior ran (e.g. all declined).
+            int cost = winner?.Act(id) ?? 1;
 
-            // Push the entity's next action forward by its period. Skip if the
-            // entity no longer exists — a behavior may have destroyed it.
+            // Push the entity's next action forward by period × cost. Skip if
+            // the entity no longer exists — a behavior may have destroyed it.
             if (EntityExists(id) && HasComponent<Scheduler>(id))
-                GetComponent<Scheduler>(id).Reschedule(tickCount);
+                GetComponent<Scheduler>(id).Reschedule(tickCount, cost);
         }
 
         // Pass 2: passive effects fire every tick on every entity (wall-clock)

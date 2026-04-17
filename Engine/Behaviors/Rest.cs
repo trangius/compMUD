@@ -21,10 +21,12 @@ public class RestBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Rest is a no-op by design — the entity keeps its position and its components.
+    // Rest is a no-op by design — the entity keeps its position and its
+    // components. Cost 1 — one period of peaceful sitting around.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         // Intentionally empty — resting is the absence of motion.
+        return 1;
     }
 }

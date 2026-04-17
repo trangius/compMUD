@@ -21,10 +21,11 @@ public class WanderBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Pick a random direction and try to step.
+    // Pick a random direction and try to step. Cost 1 — a step is baseline.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         MovementHelper.Wander(id, rng);
+        return 1;
     }
 }

@@ -73,16 +73,19 @@ public class ReturnToForestBehavior : IBehavior
 
     // ----------------------------------------------------------------------------
     // Tree underfoot → despawn. Otherwise step along the cached path.
+    // Cost 1 — both the step and the vanish are instantaneous for scheduling.
+    // (Despawn cost is academic, but stay consistent: the entity is gone anyway.)
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         if (cachedOnTree)
         {
             World.Log($"{World.GetEntityName(id)} vanishes into the forest");
             World.DestroyEntity(id);
-            return;
+            return 1;
         }
         MovementHelper.TryMove(id, cachedStepDx, cachedStepDy);
+        return 1;
     }
 }
 

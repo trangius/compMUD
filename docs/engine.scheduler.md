@@ -12,7 +12,7 @@ public class Scheduler
     public int nextActTick = 0;  // tick value at which this entity next acts
 
     public bool IsDue(int globalTick);
-    public void Reschedule(int globalTick);  // nextActTick = globalTick + period
+    public void Reschedule(int globalTick, int cost = 1);  // nextActTick = globalTick + period * cost
 }
 ```
 
@@ -22,13 +22,13 @@ In Pass 1 of `World.Tick`, for each entity with `Behaviors`:
 
 ```
 if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
-    continue;                                  // skip — not due yet
+    continue;                                         // skip — not due yet
 
-// run winning behavior
-winner?.Act(id);
+// Run winning behavior — its Act returns a cost (1 = baseline, higher = slower)
+int cost = winner?.Act(id) ?? 1;
 
 if (EntityExists(id) && HasComponent<Scheduler>(id))
-    GetComponent<Scheduler>(id).Reschedule(tickCount);
+    GetComponent<Scheduler>(id).Reschedule(tickCount, cost);
 ```
 
 An entity without a `Scheduler` falls back to "act every tick" — the default
@@ -66,9 +66,42 @@ sprout), its `Scheduler.nextActTick` defaults to 0. On the *next* global tick,
 `tickCount >= 0` so it's immediately due. Babies act one tick after their
 birth tick.
 
-## What's planned but not in yet
+## Varied action cost
 
-- **Varied action cost.** `Act()` would return a cost; `Reschedule` becomes
-  `nextActTick = globalTick + period * cost`. Bite = 2, step = 1, long
-  incantation = 5. Documented design; no code change yet. See
-  `README.md` (in-flight section) for intent.
+Not every action takes the same wall-clock time. `IBehavior.Act` returns an
+`int` cost (default 1 = baseline); `Reschedule` multiplies by that cost when
+pushing `nextActTick` forward:
+
+```csharp
+nextActTick = globalTick + period * cost;
+```
+
+A wolf's step costs 1 period (10 ticks); a wolf's bite costs 2 (20 ticks —
+the predator pauses to commit to the attack). A rabbit walking toward a mate
+costs 1 period (15 ticks); the actual mating act costs 3 (45 ticks — a bigger
+pause, matches the biological weight).
+
+**Cost is dynamic per-action, not a property of the behavior.** The same
+`HuntBehavior` returns 1 when it stepped and 2 when it bit. Return cost from
+`Act`, not from a static property.
+
+### Current cost table
+
+| Behavior | Action | Cost |
+|---|---|---|
+| `FleeBehavior` | step | 1 |
+| `WanderBehavior` | step | 1 |
+| `RestBehavior` | no-op | 1 |
+| `FeedBehavior` | walk toward food | 1 |
+| `FeedBehavior` | **eat (consume underfoot item)** | **5** |
+| `HarvestBehavior` | harvest bush | 1 |
+| `GrowBehavior` | spread / spawn | 1 |
+| `ReturnToForestBehavior` | step / vanish | 1 |
+| `BreedBehavior` | walk toward mate | 1 |
+| `BreedBehavior` | **mate (produce baby)** | **8** |
+| `HuntBehavior` | walk toward prey | 1 |
+| `HuntBehavior` | **bite** | **3** |
+
+Tune these as the fiction grows — casting a spell might cost 5, a quick dodge
+might cost less than baseline (but no sub-1 mechanism exists yet; add one
+only if needed).

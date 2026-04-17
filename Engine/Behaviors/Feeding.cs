@@ -127,14 +127,16 @@ public class HarvestBehavior : IBehavior
 
     // ----------------------------------------------------------------------------
     // Spawn the cached harvestable's drop at our feet, then destroy it.
+    // Cost 1 — grabbing a berry at your feet is a quick action.
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         Position pos = World.GetComponent<Position>(id);
         Drops drops = World.GetComponent<Drops>(cachedHarvestableId);
         drops.SpawnItem(pos.X, pos.Y);
         World.Log($"{World.GetEntityName(id)} harvests {World.GetEntityName(cachedHarvestableId, drops.name)}");
         World.DestroyEntity(cachedHarvestableId);
+        return 1;
     }
 }
 
@@ -240,9 +242,10 @@ public class FeedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Eat the cached food if it's underfoot; otherwise step along the cached path.
+    // Eat the cached food if it's underfoot (cost 5 — chewing takes real time);
+    // otherwise step along the cached path (cost 1 — baseline movement).
     // ----------------------------------------------------------------------------
-    public void Act(int id)
+    public int Act(int id)
     {
         if (cachedFoodIsUnderfoot)
         {
@@ -252,10 +255,11 @@ public class FeedBehavior : IBehavior
             energy.Restore(item.amount);
             World.Log($"{World.GetEntityName(id)} eats {World.GetEntityName(cachedFoodId)}");
             World.DestroyEntity(cachedFoodId);
-            return;
+            return 5;
         }
 
         MovementHelper.TryMove(id, cachedStepDx, cachedStepDy);
+        return 1;
     }
 
     // ----------------------------------------------------------------------------
