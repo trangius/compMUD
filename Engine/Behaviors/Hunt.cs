@@ -23,18 +23,23 @@ public class Predator
 }
 
 // State: this entity can make melee attacks. Owns the damage formula — the
-// component answers "how hard does a strike hit" by reading Strength off the
-// entity. A future Weapon component would compose here: `Strength + weapon.bonus`.
+// component answers "how hard does a strike hit" by reading attacker Strength
+// and defender Toughness off the two entities. A future Weapon component
+// would compose here: `Strength + weapon.bonus`.
 public class Melee
 {
     // ----------------------------------------------------------------------------
-    // Damage this entity deals on a successful melee strike. Derived from
-    // Strength; floored at 1 so any bite lands something. Scale: Str 1-100
-    // → damage 1-4.
+    // Damage this entity deals to a defender on a successful melee strike.
+    // Attacker Strength scores the hit; defender Toughness soaks part of it.
+    // Floored at 1 so any bite lands something. Scale: Str 1-100 → base 1-4;
+    // Toughness 1-100 → soak 0-3. Wolf (Str 80) vs Rabbit (Tough 15) = 3;
+    // Rabbit (Str 10) vs Wolf (Tough 50) = 1 (floor).
     // ----------------------------------------------------------------------------
-    public int Damage(int id)
+    public int Damage(int attackerId, int defenderId)
     {
-        return Math.Max(1, StatMath.Require(id).Strength / 25);
+        int atk = StatMath.Require(attackerId).Strength / 25;
+        int soak = StatMath.Require(defenderId).Toughness / 30;
+        return Math.Max(1, atk - soak);
     }
 }
 
@@ -148,8 +153,8 @@ public class HuntBehavior : IBehavior
     {
         if (cachedPreyAdjacent)
         {
-            // Bite: deal damage owned by the Melee component (Strength-derived)
-            int damage = World.GetComponent<Melee>(id).Damage(id);
+            // Bite: damage owned by the Melee component (attacker Str vs defender Tough)
+            int damage = World.GetComponent<Melee>(id).Damage(id, cachedPreyId);
             Health targetHealth = World.GetComponent<Health>(cachedPreyId);
             targetHealth.TakeDamage(damage);
 

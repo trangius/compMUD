@@ -15,6 +15,6 @@ public class Stats
     public int Strength = 1;
     public int Agility = 1;
     public int Perception = 1;
-    // Future fields land here with a default: Toughness, Mass, Intelligence,
-    // Charisma, ...
+    public int Toughness = 1;
+    // Future fields land here with a default: Mass, Intelligence, Charisma, ...
 }

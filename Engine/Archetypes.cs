@@ -17,7 +17,7 @@ public static class Archetypes
         World.AttachComponent(e, new Appearance { spriteId = "rabbit", layer = 4 });
         World.AttachComponent(e, new Named { name = "Rabbit" });
         World.AttachComponent(e, new Solid());
-        World.AttachComponent(e, new Stats { Strength = 10, Agility = 70, Perception = 15 });
+        World.AttachComponent(e, new Stats { Strength = 10, Agility = 70, Perception = 15, Toughness = 15 });
         World.AttachComponent(e, new Health(10));
         World.AttachComponent(e, new Energy(3000));
         World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 600, dropSpriteId = "corpse" });
@@ -49,7 +49,7 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Wolf" });
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Species { spawn = CreateWolf });
-        World.AttachComponent(e, new Stats { Strength = 80, Agility = 75, Perception = 100 });
+        World.AttachComponent(e, new Stats { Strength = 80, Agility = 75, Perception = 100, Toughness = 50 });
         World.AttachComponent(e, new AgilityPaced());
         World.AttachComponent(e, new Predator(CreateRabbit));
         World.AttachComponent(e, new RaidingWolf());

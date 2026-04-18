@@ -13,7 +13,8 @@ public class Stats
     public int Strength = 1;
     public int Agility = 1;
     public int Perception = 1;
-    // Future: Toughness, Mass, Intelligence, Charisma, ...
+    public int Toughness = 1;
+    // Future: Mass, Intelligence, Charisma, ...
 }
 ```
 
@@ -48,9 +49,10 @@ a value" live in `Engine/Stats/StatMath.cs`:
 
 **Capability-specific formulas live on the capability's component.** Examples:
 
-- `Melee.Damage(id)` = `max(1, Strength / 25)` — the `Melee` component owns
-  "how hard does my strike hit?" because it's a property of being a melee
-  attacker, not of being statted in general.
+- `Melee.Damage(atkId, defId)` = `max(1, atkStr/25 - defTough/30)` — the
+  `Melee` component owns "how hard does my strike land?" because it's a
+  property of the attacker-vs-defender pairing. Toughness lives here, not in
+  `Health.TakeDamage`, so internal damage sources (starvation) aren't soaked.
 - `Grappled.EscapeChance(victimId)` = `victimAgi / (victimAgi + 3 * attackerStr)`
   — the `Grappled` state owns the escape formula because it's an interaction
   between specifically-named attacker and victim entities.
@@ -80,10 +82,10 @@ by grep: if the behavior calls a `StatMath` method, it needs Stats.
 
 Current archetype values (for reference):
 
-| Creature | Strength | Agility | Perception | Derived |
-|---|---|---|---|---|
-| Wolf | 80 | 75 | 100 | bite 3, period 10, vision 100 |
-| Rabbit | 10 | 70 | 15 | bite 1, period 15, vision 15 |
+| Creature | Strength | Agility | Perception | Toughness | Derived |
+|---|---|---|---|---|---|
+| Wolf | 80 | 75 | 100 | 50 | bite-vs-rabbit 3, period 10, vision 100 |
+| Rabbit | 10 | 70 | 15 | 15 | bite-vs-wolf 1, period 15, vision 15 |
 
 The 1–100 scale leaves room for weaker (mouse: Agility 50?) and stronger
 (bear: Strength 120? — or cap at 100, adjust formulas). No hard ceiling
