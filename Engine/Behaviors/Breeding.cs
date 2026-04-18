@@ -81,8 +81,7 @@ public class BreedBehavior : IBehavior
         }
 
         // No adjacent mate — look for one to walk toward
-        if (!World.HasComponent<Sensing>(id)) return false;
-        int range = World.GetComponent<Sensing>(id).VisionRange;
+        int range = StatMath.VisionRange(id);
 
         cachedMateId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
             other != id

@@ -22,14 +22,19 @@ public class Predator
     }
 }
 
-// State: attack damage this entity deals in melee.
-public class Attacking
+// State: this entity can make melee attacks. Owns the damage formula — the
+// component answers "how hard does a strike hit" by reading Strength off the
+// entity. A future Weapon component would compose here: `Strength + weapon.bonus`.
+public class Melee
 {
-    public int Damage { get; }
-
-    public Attacking(int damage)
+    // ----------------------------------------------------------------------------
+    // Damage this entity deals on a successful melee strike. Derived from
+    // Strength; floored at 1 so any bite lands something. Scale: Str 1-100
+    // → damage 1-4.
+    // ----------------------------------------------------------------------------
+    public int Damage(int id)
     {
-        Damage = damage;
+        return Math.Max(1, StatMath.Require(id).Strength / 25);
     }
 }
 
@@ -72,11 +77,11 @@ public class HuntBehavior : IBehavior
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
-        if (!World.HasComponent<Sensing>(id) || !World.HasComponent<Attacking>(id) || !World.HasComponent<Predator>(id) || !World.HasComponent<Position>(id)) return false;
+        if (!World.HasComponent<Melee>(id) || !World.HasComponent<Predator>(id) || !World.HasComponent<Position>(id)) return false;
 
         Predator predator = World.GetComponent<Predator>(id);
         Position pos = World.GetComponent<Position>(id);
-        int range = World.GetComponent<Sensing>(id).VisionRange;
+        int range = StatMath.VisionRange(id);
 
         // Single BFS flood. Same passability as the mover uses, so anything we
         // find a path to is genuinely reachable this tick.
@@ -143,10 +148,10 @@ public class HuntBehavior : IBehavior
     {
         if (cachedPreyAdjacent)
         {
-            // Bite: deal damage, log it, remove prey if dead
-            Attacking attack = World.GetComponent<Attacking>(id);
+            // Bite: deal damage owned by the Melee component (Strength-derived)
+            int damage = World.GetComponent<Melee>(id).Damage(id);
             Health targetHealth = World.GetComponent<Health>(cachedPreyId);
-            targetHealth.TakeDamage(attack.Damage);
+            targetHealth.TakeDamage(damage);
 
             World.Log($"{World.GetEntityName(id)} attacks {World.GetEntityName(cachedPreyId)} ({targetHealth.Current}/{targetHealth.Max} HP)");
             bool killed = DeathHelper.DestroyEntityIfDead(cachedPreyId);

@@ -10,7 +10,8 @@ Engine/
   Species.cs          Species component + CountAll / CountInRadius helpers.
                       Species identity = the spawn delegate (see engine.species.md).
   Tree.cs             Tree marker State (raiding wolves spawn at / retreat to one).
-  Scheduler.cs        Scheduler component (period, nextActTick) + IsDue / Reschedule.
+  Scheduler.cs        IScheduler interface + AgilityPaced (stat-driven) +
+                      FixedPaced (literal period) + Scheduling.Get helper.
                       See engine.scheduler.md.
 
   Areas/              One file per concrete area. The engine doesn't know about areas;
@@ -21,13 +22,15 @@ Engine/
   Spatial/            Position, passability, pathfinding.
     Spatial.cs        Position, Walkable, Solid (marker States) + MovementHelper
                       (TryMove, MoveToward, MoveAwayFrom, Wander — all 8-connected).
-    Sensing.cs        Sensing component — how far an entity perceives.
     Algorithms.cs     Generic grid BFS + BFSResult (distance, FirstStep). Used by
                       Feed, Hunt, and ReturnToForest.
 
-  Stats/              Per-entity numeric state.
-    Health.cs         Health, Corpse marker, DeathHelper (spawns corpse + drops).
-    Energy.cs         Energy + EnergyDrainEffect (wall-clock drain every tick).
+  Stats/              Static attributes + resources.
+    Stats.cs          Stats (Strength, Agility, Perception).
+    StatMath.cs       Derived-ability formulas (BiteDamage, VisionRange,
+                      ActionPeriod, EscapeChance) + Require helper.
+    Health.cs         Health (resource), Corpse marker, DeathHelper.
+    Energy.cs         Energy (resource) + EnergyDrainEffect.
 
   Behaviors/          Each file holds: marker State(s) + the Behavior that keys off them.
                       See engine.five-buckets.md for the pattern.

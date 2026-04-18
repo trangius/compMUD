@@ -190,8 +190,7 @@ public class FeedBehavior : IBehavior
 
         // Otherwise: flood reachable cells out to vision range. CanCreatureBeHere
         // is the same passability the mover uses — walls, water, and other Solids block.
-        if (!World.HasComponent<Sensing>(id)) return false;
-        int range = World.GetComponent<Sensing>(id).VisionRange;
+        int range = StatMath.VisionRange(id);
         BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
 
         // Collect every edible entity sitting in a reached cell, with its walking distance.

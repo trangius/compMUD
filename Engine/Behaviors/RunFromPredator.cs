@@ -19,11 +19,11 @@ public class RunFromPredatorBehavior : IBehavior
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
-        if (!World.HasComponent<Sensing>(id) || !World.HasComponent<Species>(id) || !World.HasComponent<Position>(id)) return false;
+        if (!World.HasComponent<Species>(id) || !World.HasComponent<Position>(id)) return false;
 
         Species species = World.GetComponent<Species>(id);
         Position pos = World.GetComponent<Position>(id);
-        int range = World.GetComponent<Sensing>(id).VisionRange;
+        int range = StatMath.VisionRange(id);
 
         cachedThreatId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
             other != id

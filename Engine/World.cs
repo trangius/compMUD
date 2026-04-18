@@ -37,11 +37,12 @@ public static class World
 
     // ----------------------------------------------------------------------------
     // Advance the world by one step. Two passes in order:
-    //   1. Actions — each entity DUE this tick (per its Scheduler) picks ONE
-    //      behavior and runs it. Scheduler.period gates how often an entity is
-    //      due; entities without a Scheduler fall back to "act every tick".
+    //   1. Actions — each entity DUE this tick (per its IScheduler) picks ONE
+    //      behavior and runs it. AgilityPaced derives its period from Stats;
+    //      FixedPaced uses a literal period. Entities with no scheduler fall
+    //      back to "act every tick".
     //   2. Effects — run on every entity every tick regardless of pace (wall-
-    //      clock drain/decay/aging). Effects don't know about Scheduler.
+    //      clock drain/decay/aging). Effects don't know about schedulers.
     // ----------------------------------------------------------------------------
     public static void Tick()
     {
@@ -51,7 +52,8 @@ public static class World
             if (!EntityExists(id)) continue;
 
             // Scheduler gates the turn — if this entity isn't due yet, skip
-            if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
+            IScheduler? sched = Scheduling.Get(id);
+            if (sched != null && !sched.IsDue(tickCount))
                 continue;
 
             // Grapple auto-release: if the attacker is gone or no longer adjacent,
@@ -81,10 +83,8 @@ public static class World
 
             // Push the entity's next action forward by period × cost. Skip if
             // the entity no longer exists — a behavior may have destroyed it.
-            // TODO: do we really need this if? Or should all that have behaviour
-            // also have a scheduler?
-            if (EntityExists(id) && HasComponent<Scheduler>(id))
-                GetComponent<Scheduler>(id).Reschedule(tickCount, cost);
+            if (EntityExists(id) && sched != null)
+                sched.Reschedule(tickCount, cost, id);
         }
 
         // Pass 2: passive effects fire every tick on every entity (wall-clock)

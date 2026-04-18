@@ -24,6 +24,18 @@ public class Grappled
         Position ap = World.GetComponent<Position>(attackerId);
         return Math.Max(Math.Abs(vp.X - ap.X), Math.Abs(vp.Y - ap.Y)) <= 1;
     }
+
+    // ----------------------------------------------------------------------------
+    // Probability the victim breaks free on an escape attempt: victim Agility vs
+    // attacker Strength, with Strength weighted 3× — a strong predator genuinely
+    // pins its prey. At Str 80 vs Agi 70, chance ≈ 0.23.
+    // ----------------------------------------------------------------------------
+    public double EscapeChance(int victimId)
+    {
+        int str = StatMath.Require(attackerId).Strength;
+        int agi = StatMath.Require(victimId).Agility;
+        return (double)agi / (agi + 3 * str);
+    }
 }
 
 // Marker: a Behavior that can still run while its entity is grappled. The
@@ -32,18 +44,15 @@ public class Grappled
 // qualifies; future while-pinned skills (cast, poke-eyes, etc.) will too.
 public interface ICanActWhenGrappled { }
 
-// Behavior: try to break free of a grapple. Rolls a flat success chance per
-// attempt. On success: detach Grappled, step one cell away from the attacker.
-// On failure: the turn is wasted (still pinned, no movement).
+// Behavior: try to break free of a grapple. Success chance comes from
+// StatMath.EscapeChance (victim's Agility vs attacker's Strength). On
+// success: detach Grappled, step one cell away. On failure: turn wasted,
+// still pinned.
 // High priority so that once other while-grappled skills exist, escape remains
 // the default when nothing fancier claims the tick.
 public class EscapeGrappleBehavior : IBehavior, ICanActWhenGrappled
 {
     public int Priority => 100;
-
-    // Tunable per-attempt probability. Flat for now; will hook into a future
-    // Strength comparison between attacker and victim when stats land.
-    public double escapeChance = 0.2;
 
     private Random rng;
 
@@ -61,20 +70,21 @@ public class EscapeGrappleBehavior : IBehavior, ICanActWhenGrappled
     }
 
     // ----------------------------------------------------------------------------
-    // Roll the escape. Success: detach Grappled and step one cell away from the
-    // attacker. Failure: log the struggle and burn the turn. Cost 1 either way.
+    // Roll the escape against attacker Strength vs victim Agility — the Grappled
+    // state owns the formula. Success: detach Grappled and step one cell away
+    // from the attacker. Failure: log the struggle and burn the turn. Cost 1.
     // ----------------------------------------------------------------------------
     public int Act(int id)
     {
-        if (rng.NextDouble() >= escapeChance)
+        Grappled g = World.GetComponent<Grappled>(id);
+        int attackerId = g.attackerId;
+
+        if (rng.NextDouble() >= g.EscapeChance(id))
         {
             World.Log($"{World.GetEntityName(id)} struggles but stays pinned");
             return 1;
         }
 
-        // Capture attacker position before detaching — we still need it to flee
-        Grappled g = World.GetComponent<Grappled>(id);
-        int attackerId = g.attackerId;
         World.DetachComponent<Grappled>(id);
 
         Position pos = World.GetComponent<Position>(id);

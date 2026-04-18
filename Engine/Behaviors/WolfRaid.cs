@@ -46,8 +46,7 @@ public class ReturnToForestBehavior : IBehavior
         }
 
         // Flood reachable cells and pick the nearest tree
-        int range = World.HasComponent<Sensing>(id) ? World.GetComponent<Sensing>(id).VisionRange : 100;
-
+        int range = StatMath.VisionRange(id);
         BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
 
         int bestDist = int.MaxValue;

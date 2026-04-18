@@ -20,7 +20,8 @@ grows to hundreds of components.
 
 - Marker components (often empty classes) attached to one entity. If the state
   carries information, add fields; otherwise leave empty.
-- Examples: `Walkable`, `Solid`, `Corpse`, `Tree`, `RaidingWolf`.
+- Examples: `Walkable`, `Solid`, `Corpse`, `Tree`, `RaidingWolf`, `Stats`,
+  `Melee`, `Grappled`.
 - **Pattern**: `public class Sleeping { }` or with fields. Checked via
   `World.HasComponent<T>(id)`, read via `World.GetComponent<T>(id)`.
 

@@ -1,88 +1,95 @@
 # Scheduler
 
-`Scheduler` paces an entity's `Behaviors` dispatch. It does NOT affect
+A scheduler paces an entity's `Behaviors` dispatch. It does NOT affect
 `Effects` — those are wall-clock (see `engine.tick.md`).
 
-## The component
+Two concrete scheduler types, both implementing the same interface — the
+statted / simpleton split is visible at the archetype:
+
+- **`AgilityPaced`** — for statted creatures. Period comes from `Stats.Agility`
+  via `StatMath.ActionPeriod(id)`, recomputed at each reschedule. Buffs to
+  Agility take effect on the very next action.
+- **`FixedPaced`** — for simpletons (bushes, future grass, door tickers).
+  Period is a literal field.
 
 ```csharp
-public class Scheduler
+public interface IScheduler
 {
-    public int period = 1;       // global ticks between actions; must be >= 1
-    public int nextActTick = 0;  // tick value at which this entity next acts
-
-    public bool IsDue(int globalTick);
-    public void Reschedule(int globalTick, int cost = 1);  // nextActTick = globalTick + period * cost
+    int NextActTick { get; set; }
+    bool IsDue(int globalTick);
+    void Reschedule(int globalTick, int cost, int entityId);
 }
+
+public class AgilityPaced : IScheduler { ... }           // period from Stats.Agility
+public class FixedPaced   : IScheduler { public int period; ... }
 ```
 
-## How it gates a turn
+`Scheduling.Get(id)` returns whichever is attached, or `null` if the entity
+isn't on any schedule (terrain, corpses, event spawners).
+
+## How the dispatcher uses it
 
 In Pass 1 of `World.Tick`, for each entity with `Behaviors`:
 
-```
-if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
+```csharp
+IScheduler? sched = Scheduling.Get(id);
+if (sched != null && !sched.IsDue(tickCount))
     continue;                                         // skip — not due yet
 
-// Run winning behavior — its Act returns a cost (1 = baseline, higher = slower)
-int cost = winner?.Act(id) ?? 1;
+// ... pick and run winning behavior, capture cost ...
 
-if (EntityExists(id) && HasComponent<Scheduler>(id))
-    GetComponent<Scheduler>(id).Reschedule(tickCount, cost);
+if (EntityExists(id) && sched != null)
+    sched.Reschedule(tickCount, cost, id);
 ```
 
-An entity without a `Scheduler` falls back to "act every tick" — the default
-and the legacy behavior from before the scheduler existed.
+Entities without *any* scheduler fall back to "act every tick" — rare in
+practice (terrain doesn't have Behaviors).
 
 ## Current pace assignments
 
-| Archetype | period | Acts every N ticks |
-|---|---|---|
-| Wolf (raider) | 10 | 10 |
-| Rabbit | 15 | 15 |
-| Bush | 30 | 30 |
-| Raid spawner | n/a (no Behaviors — it's purely an Effect host) | — |
+| Archetype | Scheduler | Period | Acts every N ticks |
+|---|---|---|---|
+| Wolf | `AgilityPaced` | `85 - Agi(75) = 10` | 10 |
+| Rabbit | `AgilityPaced` | `85 - Agi(70) = 15` | 15 |
+| Bush | `FixedPaced` | literal 30 | 30 |
+| Raid spawner | none (has only Effects, not Behaviors) | — | — |
 
-"1 is lightspeed" — any entity with `period = 1` acts on every global tick,
-the fastest possible pace. Leave room below normal creatures for spells /
-buffs that bump something temporarily to period 1-3.
+"1 is lightspeed" — Agility ≥ 84 (or `FixedPaced.period = 1`) gives a creature
+the fastest possible pace, acting on every global tick.
 
 ## Interaction with Effects
 
 `EnergyDrainEffect` runs in Pass 2 for every entity with Effects, regardless
-of `Scheduler`. A rabbit (period 15) drains 1 energy per global tick — 15
-energy per rabbit-action — same as a wolf (period 10) drains 10 per action.
-This is intentional: metabolism doesn't know or care about action speed.
-Poison, aging, bleeding all work the same way.
+of pace. A rabbit (period 15) drains 1 energy per global tick — 15 energy
+per rabbit-action — same as a wolf (period 10) drains 10 per action. This is
+intentional: metabolism doesn't know or care about action speed. Poison,
+aging, bleeding all work the same way.
 
 Consequence: slower entities need larger `Energy` pools to stay viable for
-the same wall-clock lifespan. The current tuning scales accordingly (wolf
-`Energy(1000)`, rabbit `Energy(1500)`).
+the same wall-clock lifespan. The current tuning scales accordingly.
 
 ## Baby entities
 
 When a new entity is spawned mid-tick (breeding baby, raid wolf, vegetation
-sprout), its `Scheduler.nextActTick` defaults to 0. On the *next* global tick,
-`tickCount >= 0` so it's immediately due. Babies act one tick after their
-birth tick.
+sprout), its scheduler's `NextActTick` defaults to 0. On the *next* global
+tick, `tickCount >= 0` so it's immediately due. Babies act one tick after
+their birth tick.
 
 ## Varied action cost
 
 Not every action takes the same wall-clock time. `IBehavior.Act` returns an
 `int` cost (default 1 = baseline); `Reschedule` multiplies by that cost when
-pushing `nextActTick` forward:
+pushing `NextActTick` forward:
 
-```csharp
-nextActTick = globalTick + period * cost;
+```
+NextActTick = globalTick + period * cost;
 ```
 
-A wolf's step costs 1 period (10 ticks); a wolf's bite costs 2 (20 ticks —
-the predator pauses to commit to the attack). A rabbit walking toward a mate
-costs 1 period (15 ticks); the actual mating act costs 3 (45 ticks — a bigger
-pause, matches the biological weight).
+A wolf's step costs 1 period (10 ticks); a wolf's bite costs 3. A rabbit's
+step costs 1 period (15 ticks); mating costs 8.
 
 **Cost is dynamic per-action, not a property of the behavior.** The same
-`HuntBehavior` returns 1 when it stepped and 2 when it bit. Return cost from
+`HuntBehavior` returns 1 when it stepped and 3 when it bit. Return cost from
 `Act`, not from a static property.
 
 ### Current cost table
@@ -101,7 +108,6 @@ pause, matches the biological weight).
 | `BreedBehavior` | **mate (produce baby)** | **8** |
 | `HuntBehavior` | walk toward prey | 1 |
 | `HuntBehavior` | **bite** | **3** |
+| `EscapeGrappleBehavior` | struggle / break free | 1 |
 
-Tune these as the fiction grows — casting a spell might cost 5, a quick dodge
-might cost less than baseline (but no sub-1 mechanism exists yet; add one
-only if needed).
+Tune these as the fiction grows.

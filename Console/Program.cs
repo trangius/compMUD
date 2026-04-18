@@ -157,7 +157,7 @@ static void ShowCellInfo(int x, int y)
             Energy e = World.GetComponent<Energy>(id);
             tags.Add($"Energy:{e.Current}/{e.Max}");
         }
-        if (World.HasComponent<Attacking>(id)) tags.Add($"Atk:{World.GetComponent<Attacking>(id).Damage}");
+        if (World.HasComponent<Melee>(id)) tags.Add("Melee");
         if (World.HasComponent<Walkable>(id)) tags.Add("Walkable");
         if (World.HasComponent<Solid>(id)) tags.Add("Solid");
         if (World.HasComponent<Species>(id))
@@ -165,10 +165,20 @@ static void ShowCellInfo(int x, int y)
             Species sp = World.GetComponent<Species>(id);
             tags.Add($"Species:{sp.spawn.Method.Name.Replace("Create", "")}");
         }
-        if (World.HasComponent<Scheduler>(id))
+        if (World.HasComponent<Stats>(id))
         {
-            Scheduler sch = World.GetComponent<Scheduler>(id);
-            tags.Add($"Pace:{sch.period} next:{sch.nextActTick}");
+            Stats s = World.GetComponent<Stats>(id);
+            tags.Add($"Str:{s.Strength} Agi:{s.Agility} Per:{s.Perception}");
+        }
+        if (World.HasComponent<AgilityPaced>(id))
+        {
+            AgilityPaced ap = World.GetComponent<AgilityPaced>(id);
+            tags.Add($"AgilityPaced next:{ap.NextActTick}");
+        }
+        if (World.HasComponent<FixedPaced>(id))
+        {
+            FixedPaced fp = World.GetComponent<FixedPaced>(id);
+            tags.Add($"FixedPaced(period:{fp.period}) next:{fp.NextActTick}");
         }
         if (World.HasComponent<Grappled>(id))
         {

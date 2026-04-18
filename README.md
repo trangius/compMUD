@@ -30,8 +30,11 @@ warrants touching it.*
   (Behaviors gated by Scheduler, then Effects wall-clock). **Update when:**
   the dispatch order changes or new passes are added.
 - [docs/engine.scheduler.md](docs/engine.scheduler.md) — per-entity pacing
-  via `Scheduler.period`. **Update when:** scheduler semantics change (e.g.
-  varied action cost lands), or the current species pace tuning shifts.
+  via `AgilityPaced` / `FixedPaced`. **Update when:** scheduler semantics
+  change, or the current species pace tuning shifts.
+- [docs/engine.stats.md](docs/engine.stats.md) — `Stats` component, scale,
+  `StatMath` derived formulas. **Update when:** adding a new stat, changing
+  a formula constant, or changing how stats interact with resources.
 - [docs/engine.movement.md](docs/engine.movement.md) — BFS, pathfinding, the
   8-connected grid, and the Euclidean-vs-Chebyshev range-shape gotcha.
   **Update when:** adding a new movement helper, changing connectivity, or

@@ -17,13 +17,13 @@ public static class Archetypes
         World.AttachComponent(e, new Appearance { spriteId = "rabbit", layer = 4 });
         World.AttachComponent(e, new Named { name = "Rabbit" });
         World.AttachComponent(e, new Solid());
-        World.AttachComponent(e, new Sensing(15));
+        World.AttachComponent(e, new Stats { Strength = 10, Agility = 70, Perception = 15 });
         World.AttachComponent(e, new Health(10));
         World.AttachComponent(e, new Energy(3000));
         World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 600, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
-        World.AttachComponent(e, new Scheduler { period = 15 });
+        World.AttachComponent(e, new AgilityPaced());
         World.AttachComponent(e, new Breeding { breedCooldown = 400, breedChance = 0.1, globalCap = 12 });
         World.AttachComponent(e, new Behaviors(
             new EscapeGrappleBehavior(rng),
@@ -49,12 +49,12 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Wolf" });
         World.AttachComponent(e, new Solid());
         World.AttachComponent(e, new Species { spawn = CreateWolf });
-        World.AttachComponent(e, new Scheduler { period = 10 });
+        World.AttachComponent(e, new Stats { Strength = 80, Agility = 75, Perception = 100 });
+        World.AttachComponent(e, new AgilityPaced());
         World.AttachComponent(e, new Predator(CreateRabbit));
         World.AttachComponent(e, new RaidingWolf());
-        World.AttachComponent(e, new Sensing(100));
         World.AttachComponent(e, new Health(30));
-        World.AttachComponent(e, new Attacking(3));
+        World.AttachComponent(e, new Melee());
         World.AttachComponent(e, new Energy(1000));
         World.AttachComponent(e, new Drops { name = "Wolf corpse", resourceType = Resources.Meat, amount = 400, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Meat) { hungerThreshold = 0.9 });
@@ -93,7 +93,7 @@ public static class Archetypes
         World.AttachComponent(e, new Named { name = "Bush" });
         World.AttachComponent(e, new Walkable());
         World.AttachComponent(e, new Species { spawn = CreateBush });
-        World.AttachComponent(e, new Scheduler { period = 30 });
+        World.AttachComponent(e, new FixedPaced { period = 30 });
         World.AttachComponent(e, new Vegetation { spreadChance = 0.1, spawnChance = 0.0005, clusterCap = 2, clusterRadius = 2 });
         World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 1500, dropSpriteId = "berries" });
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));

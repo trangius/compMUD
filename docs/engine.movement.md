@@ -56,7 +56,8 @@ realism loss.
 
 ## The range-shape gotcha
 
-`Sensing.VisionRange` is one number, but two functions interpret it differently:
+`StatMath.VisionRange(id)` returns one number (= `Stats.Perception`), but two
+functions interpret it differently:
 
 - **`FindNearestEntity(x, y, range, filter)`** — scans a `[-range, +range]²`
   box, filters by `dx² + dy² ≤ range²`. That's a **Euclidean disk**.
