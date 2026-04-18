@@ -13,6 +13,12 @@ namespace Engine;
 //
 // Both expose IScheduler so the dispatcher treats them uniformly. Scheduling.Get
 // finds whichever one an entity has attached.
+//
+// TODO: AgilityPaced and FixedPaced share ~4 lines of logic (IsDue, the
+// tickCount + period shape in OnAttach/Reschedule) — the only real difference
+// is where "period" comes from. Kept separate on purpose: the two class names
+// make the statted-vs-simpleton split visible at the archetype. Revisit if a
+// third scheduler variant shows up and the duplication starts to bite.
 // ----------------------------------------------------------------------------
 
 public interface IScheduler
@@ -24,9 +30,20 @@ public interface IScheduler
 
 // State: stat-driven scheduler. Period = StatMath.ActionPeriod(id).
 // Requires Stats on the entity — dispatcher + StatMath will throw if missing.
-public class AgilityPaced : IScheduler
+public class AgilityPaced : IScheduler, IOnAttach
 {
     public int NextActTick { get; set; }
+
+    // ----------------------------------------------------------------------------
+    // On attach, set the first action one full period out from "now". Without
+    // this a late-spawned creature has NextActTick=0, which is already in the
+    // past — it'd act on its very next tick regardless of pace. Requires Stats
+    // to already be on the entity (archetype order handles that).
+    // ----------------------------------------------------------------------------
+    public void OnAttach(int id)
+    {
+        NextActTick = World.tickCount + StatMath.ActionPeriod(id);
+    }
 
     // ----------------------------------------------------------------------------
     // Due if the global tick has caught up to our scheduled next action.
@@ -48,10 +65,19 @@ public class AgilityPaced : IScheduler
 
 // State: fixed-period scheduler for non-statted actors. Plants and inert
 // tickers pace themselves with a literal period.
-public class FixedPaced : IScheduler
+public class FixedPaced : IScheduler, IOnAttach
 {
     public int period;
     public int NextActTick { get; set; }
+
+    // ----------------------------------------------------------------------------
+    // On attach, wait one full period before the first action. Same reason as
+    // AgilityPaced — don't let mid-game spawns get a free action on tick 0.
+    // ----------------------------------------------------------------------------
+    public void OnAttach(int id)
+    {
+        NextActTick = World.tickCount + period;
+    }
 
     public bool IsDue(int globalTick)
     {

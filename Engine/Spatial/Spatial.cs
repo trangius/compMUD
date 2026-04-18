@@ -2,7 +2,11 @@ namespace Engine;
 
 // State: where an entity is on the grid. Immutable — only World can change a
 // position (via MoveEntity), which keeps the spatial index in sync.
-public class Position
+//
+// Position owns its spatial-index bookkeeping: OnAttach registers the entity at
+// (X,Y), OnDetach removes it. World calls these through IOnAttach/IOnDetach, so
+// the generic component store doesn't need to know Position is special.
+public class Position : IOnAttach, IOnDetach
 {
     public int X { get; }
     public int Y { get; }
@@ -12,6 +16,9 @@ public class Position
         X = x;
         Y = y;
     }
+
+    public void OnAttach(int id) => World.AddToSpatialIndex(id, X, Y);
+    public void OnDetach(int id) => World.RemoveFromSpatialIndex(id, X, Y);
 }
 
 // State: creatures and items can walk here.

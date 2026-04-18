@@ -70,10 +70,16 @@ the same wall-clock lifespan. The current tuning scales accordingly.
 
 ## Baby entities
 
-When a new entity is spawned mid-tick (breeding baby, raid wolf, vegetation
-sprout), its scheduler's `NextActTick` defaults to 0. On the *next* global
-tick, `tickCount >= 0` so it's immediately due. Babies act one tick after
-their birth tick.
+When a scheduler is attached, its `OnAttach` hook sets
+`NextActTick = World.tickCount + period`. So a newly spawned entity (breeding
+baby, raid wolf, vegetation sprout) waits one full period before its first
+action — same pacing as any later action. Without this the scheduler would
+default `NextActTick` to 0, and any mid-game spawn would get a free action on
+the very next tick regardless of how slow it is.
+
+`AgilityPaced.OnAttach` reads the period via `StatMath.ActionPeriod(id)`,
+which requires `Stats` to already be on the entity — archetypes attach
+`Stats` before `AgilityPaced` for this reason.
 
 ## Varied action cost
 

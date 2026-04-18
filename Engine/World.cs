@@ -1,6 +1,25 @@
 namespace Engine;
 
 // ----------------------------------------------------------------------------
+// Optional lifecycle hooks a component can implement to react to being added
+// to / removed from an entity. AttachComponent and DetachComponent call these
+// — components that don't implement them pay nothing. Use these when a
+// component must stay in sync with some world-level index or other out-of-band
+// state (Position ↔ spatial index; schedulers seeding NextActTick). If a
+// component is just data, don't implement them.
+// ----------------------------------------------------------------------------
+
+public interface IOnAttach
+{
+    void OnAttach(int id);
+}
+
+public interface IOnDetach
+{
+    void OnDetach(int id);
+}
+
+// ----------------------------------------------------------------------------
 // The world — all entities live here. Create them, destroy them, find them,
 // ask what's at a cell. Entities are integer IDs with attached components.
 // ----------------------------------------------------------------------------
@@ -16,7 +35,8 @@ public static class World
     private static Dictionary<Type, Dictionary<int, object>> components = new Dictionary<Type, Dictionary<int, object>>();
 
     // Cell (x,y) → entity ids there. Makes spatial queries O(1).
-    // Stay in sync via MoveEntity / AttachComponent / DetachComponent — don't write components[Position] directly.
+    // Position keeps this in sync via its IOnAttach/IOnDetach hooks; MoveEntity
+    // re-attaches. Don't write components[Position] directly — see engine.spatial-index.md.
     private static Dictionary<(int, int), List<int>> spatialIndex = new Dictionary<(int, int), List<int>>();
 
     public static int mapWidth;
@@ -129,24 +149,27 @@ public static class World
         return id;
     }
     // ----------------------------------------------------------------------------
-    // Destroy an entity and all its components from the world.
+    // Destroy an entity and all its components from the world. Each component
+    // gets an OnDetach call before it's dropped so things like the spatial
+    // index (hooked by Position) stay in sync.
     // ----------------------------------------------------------------------------
     public static void DestroyEntity(int id)
     {
-        if (HasComponent<Position>(id))
-        {
-            Position pos = GetComponent<Position>(id);
-            RemoveFromSpatialIndex(id, pos.X, pos.Y);
-        }
-
+        // Walk every component store; fire OnDetach on anything that cares
         foreach (Dictionary<int, object> store in components.Values)
+        {
+            if (store.TryGetValue(id, out object? c) && c is IOnDetach hook)
+                hook.OnDetach(id);
             store.Remove(id);
+        }
 
         entities.Remove(id);
     }
 
     // ----------------------------------------------------------------------------
     // Attach a component to an entity. Replaces if one of that type already exists.
+    // Old component (if any) gets OnDetach; new component gets OnAttach — components
+    // that don't implement either interface pay nothing.
     // ----------------------------------------------------------------------------
     public static void AttachComponent<T>(int id, T component) where T : class
     {
@@ -155,33 +178,29 @@ public static class World
         if (!components.ContainsKey(type))
             components[type] = new Dictionary<int, object>();
 
-        // Keep the spatial index in sync when adding a Position
-        if (component is Position newPos)
-        {
-            if (HasComponent<Position>(id))
-            {
-                Position oldPos = GetComponent<Position>(id);
-                RemoveFromSpatialIndex(id, oldPos.X, oldPos.Y);
-            }
-            AddToSpatialIndex(id, newPos.X, newPos.Y);
-        }
+        // If replacing an existing component, let the old one tear down first
+        if (components[type].TryGetValue(id, out object? old) && old is IOnDetach od)
+            od.OnDetach(id);
 
         components[type][id] = component;
+
+        // Let the new component register itself against the world
+        if (component is IOnAttach oa)
+            oa.OnAttach(id);
     }
 
     // ----------------------------------------------------------------------------
-    // Detach a component type from an entity.
+    // Detach a component type from an entity. Fires OnDetach first so hooks
+    // (e.g. Position removing itself from the spatial index) run before the
+    // component disappears.
     // ----------------------------------------------------------------------------
     public static void DetachComponent<T>(int id) where T : class
     {
         Type type = typeof(T);
         if (!components.ContainsKey(type)) return;
 
-        if (type == typeof(Position) && components[type].ContainsKey(id))
-        {
-            Position pos = (Position)components[type][id];
-            RemoveFromSpatialIndex(id, pos.X, pos.Y);
-        }
+        if (components[type].TryGetValue(id, out object? c) && c is IOnDetach od)
+            od.OnDetach(id);
 
         components[type].Remove(id);
     }
@@ -258,14 +277,13 @@ public static class World
     }
 
     // ----------------------------------------------------------------------------
-    // Move an entity to a new cell. Keeps the spatial index in sync.
+    // Move an entity to a new cell. Goes through the normal attach/detach path
+    // so Position's hooks keep the spatial index in sync — no direct writes.
     // ----------------------------------------------------------------------------
     public static void MoveEntity(int id, int newX, int newY)
     {
-        Position pos = GetComponent<Position>(id);
-        RemoveFromSpatialIndex(id, pos.X, pos.Y);
-        components[typeof(Position)][id] = new Position(newX, newY);
-        AddToSpatialIndex(id, newX, newY);
+        DetachComponent<Position>(id);
+        AttachComponent(id, new Position(newX, newY));
     }
 
     // ----------------------------------------------------------------------------
@@ -351,7 +369,12 @@ public static class World
         return (-1, -1);
     }
 
-    private static void AddToSpatialIndex(int id, int x, int y)
+    // ----------------------------------------------------------------------------
+    // Spatial index maintenance. Internal — only Position's OnAttach/OnDetach
+    // are allowed to call these. Anything else goes through AttachComponent /
+    // DetachComponent / MoveEntity. See engine.spatial-index.md.
+    // ----------------------------------------------------------------------------
+    internal static void AddToSpatialIndex(int id, int x, int y)
     {
         var key = (x, y);
         if (!spatialIndex.ContainsKey(key))
@@ -359,7 +382,7 @@ public static class World
         spatialIndex[key].Add(id);
     }
 
-    private static void RemoveFromSpatialIndex(int id, int x, int y)
+    internal static void RemoveFromSpatialIndex(int id, int x, int y)
     {
         var key = (x, y);
         if (spatialIndex.TryGetValue(key, out List<int>? list))
