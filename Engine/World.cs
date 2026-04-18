@@ -72,6 +72,8 @@ public static class World
 
             // Push the entity's next action forward by period × cost. Skip if
             // the entity no longer exists — a behavior may have destroyed it.
+            // TODO: do we really need this if? Or should all that have behaviour
+            // also have a scheduler?
             if (EntityExists(id) && HasComponent<Scheduler>(id))
                 GetComponent<Scheduler>(id).Reschedule(tickCount, cost);
         }
@@ -314,7 +316,7 @@ public static class World
     // Trees/bushes pass (not Solid). Other creatures fail (Solid). Walls fail (not walkable).
     // TODO: Make general, not just for walkable. What about fishes who spawn in water?
     // ----------------------------------------------------------------------------
-    public static bool IsCreatureSpawnable(int x, int y)
+    public static bool CanCreatureBeHere(int x, int y)
     {
         bool hasWalkable = false;
         foreach (int id in EntitiesAt(x, y))
@@ -327,7 +329,7 @@ public static class World
 
     // ----------------------------------------------------------------------------
     // Pick a random cell that matches the predicate. Returns (-1,-1) if none found.
-    // Caller supplies the rule — IsCreatureSpawnable, IsOpenGround, future IsInWater, etc.
+    // Caller supplies the rule — CanCreatureBeHere, IsOpenGround, future IsInWater, etc.
     // ----------------------------------------------------------------------------
     public static (int x, int y) FindCell(Func<int, int, bool> cellAccepts, Random rng, int attempts = 100)
     {

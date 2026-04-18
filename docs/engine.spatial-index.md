@@ -45,7 +45,7 @@ Reading is cheap and free-for-all:
 - `AllWithComponent<T>()` — every entity with component T (snapshot list).
 - `FindNearestEntity(x, y, range, filter)` — Euclidean-radius search.
 - `FindCell(predicate, rng)` — pick a random cell matching a predicate.
-- `IsOpenGround(x, y)`, `IsCreatureSpawnable(x, y)` — passability predicates.
+- `IsOpenGround(x, y)`, `CanCreatureBeHere(x, y)` — passability predicates.
 
 ## Consequences
 

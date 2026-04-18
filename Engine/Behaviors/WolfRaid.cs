@@ -47,7 +47,8 @@ public class ReturnToForestBehavior : IBehavior
 
         // Flood reachable cells and pick the nearest tree
         int range = World.HasComponent<Sensing>(id) ? World.GetComponent<Sensing>(id).VisionRange : 100;
-        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.IsCreatureSpawnable);
+
+        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
 
         int bestDist = int.MaxValue;
         (int x, int y) bestCell = (-1, -1);
@@ -120,7 +121,7 @@ public class WolfRaidEffect : IEffect
             int treeId = trees[rng.Next(trees.Count)];
             if (!World.HasComponent<Position>(treeId)) continue;
             Position treePos = World.GetComponent<Position>(treeId);
-            if (!World.IsCreatureSpawnable(treePos.X, treePos.Y)) continue;
+            if (!World.CanCreatureBeHere(treePos.X, treePos.Y)) continue;
 
             Archetypes.CreateWolf(treePos.X, treePos.Y);
             World.Log($"A wolf emerges from the forest at ({treePos.X},{treePos.Y})");

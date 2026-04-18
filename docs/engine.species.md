@@ -43,8 +43,8 @@ Used in `BreedBehavior.FindAdjacentMate`.
 ```csharp
 public class Predator
 {
-    public HashSet<Func<int,int,int>> hunts;   // e.g. { CreateRabbit, CreateHare }
-    public bool Hunts(Func<int,int,int> speciesSpawn) => hunts.Contains(speciesSpawn);
+    public HashSet<Func<int,int,int>> preySpecies;   // e.g. { CreateRabbit, CreateHare }
+    public bool Hunts(Func<int,int,int> speciesSpawn) => preySpecies.Contains(speciesSpawn);
 }
 ```
 Wolf's `new Predator(CreateRabbit)` gives it a hunt set of one species. Same
@@ -56,8 +56,8 @@ shape as `Diet.Accepts(resource)` — set membership.
 - **`Breeding.FindAdjacentMate`** — match same-species neighbors.
 - **`Breeding.globalCap`** — count world-wide same-species via `Species.CountAll`.
 - **`Vegetation.HasRoom`** — count local same-species via `Species.CountInRadius`.
-- **`Predator.hunts`** — which species this entity hunts.
-- **`FleeBehavior`** — prey finds a predator whose `hunts` contains its own
+- **`Predator.preySpecies`** — which species this entity hunts.
+- **`FleeBehavior`** — prey finds a predator whose `preySpecies` contains its own
   species.
 
 Every place that asks "who's my kind?" or "who do I care about?" goes through
@@ -71,10 +71,10 @@ Example — adding hawks that hunt rabbits AND mice:
 2. Add `Archetypes.CreateHawk` — attach `new Species { spawn = CreateHawk }`
    and `new Predator(CreateRabbit, CreateMouse)`.
 3. Done. No enum to update, no registry. Hawks now hunt rabbits and mice
-   specifically; wolves (whose `Predator.hunts` only contains `CreateRabbit`)
+   specifically; wolves (whose `Predator.preySpecies` only contains `CreateRabbit`)
    still only hunt rabbits.
 
-Rabbits flee from anything whose `Predator.hunts` contains `CreateRabbit` —
+Rabbits flee from anything whose `Predator.preySpecies` contains `CreateRabbit` —
 so they'll flee from both wolves and hawks without any extra wiring.
 
 ## Gotcha

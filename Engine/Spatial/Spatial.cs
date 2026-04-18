@@ -109,7 +109,7 @@ public static class MovementHelper
         {
             int nx = pos.X + offset.dx;
             int ny = pos.Y + offset.dy;
-            if (!World.IsCreatureSpawnable(nx, ny)) continue;
+            if (!World.CanCreatureBeHere(nx, ny)) continue;
 
             int ddx = nx - threatX;
             int ddy = ny - threatY;

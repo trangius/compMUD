@@ -35,7 +35,7 @@ BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable);
 ```
 
 `isPassable` is supplied by the caller — that's the extension point for
-swimmer / climber creatures later. Today everyone passes `World.IsCreatureSpawnable`
+swimmer / climber creatures later. Today everyone passes `World.CanCreatureBeHere`
 (has Walkable, no Solid).
 
 **Diagonals cost 1**, same as cardinals. The returned `Distance` is Chebyshev

@@ -100,7 +100,7 @@ public static class HomeArea
             // Accept the cell only if it's creature-spawnable AND far enough from every placed rabbit.
             (int rx, int ry) = World.FindCell((cx, cy) =>
             {
-                if (!World.IsCreatureSpawnable(cx, cy)) return false;
+                if (!World.CanCreatureBeHere(cx, cy)) return false;
                 foreach ((int px, int py) in placedRabbits)
                 {
                     int ddx = cx - px;

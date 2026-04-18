@@ -2,7 +2,7 @@ namespace Engine;
 
 // Behavior: run from the nearest creature whose prey list includes my species.
 // No dedicated "Prey" marker — an entity qualifies as prey by being on someone's
-// Predator.hunts. That way one source of truth decides the wolf↔rabbit pairing.
+// Predator.preySpecies. That way one source of truth decides the wolf↔rabbit pairing.
 public class FleeBehavior : IBehavior
 {
     public int Priority => 100;

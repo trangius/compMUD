@@ -1,16 +1,16 @@
 namespace Engine;
 
-// State: this entity hunts specific species. `hunts` is a set of archetype
+// State: this entity hunts specific species. `preySpecies` is a set of archetype
 // spawn delegates — the same pointers used as Species identity. A wolf with
-// hunts = { CreateRabbit } will chase rabbits (and only rabbits). Set membership
+// preySpecies = { CreateRabbit } will chase rabbits (and only rabbits). Set membership
 // replaces the old role marker, the same way Diet.Accepts checks resource kinds.
 public class Predator
 {
-    public HashSet<Func<int, int, int>> hunts;
+    public HashSet<Func<int, int, int>> preySpecies;
 
     public Predator(params Func<int, int, int>[] prey)
     {
-        hunts = new HashSet<Func<int, int, int>>(prey);
+        preySpecies = new HashSet<Func<int, int, int>>(prey);
     }
 
     // ----------------------------------------------------------------------------
@@ -18,7 +18,7 @@ public class Predator
     // ----------------------------------------------------------------------------
     public bool Hunts(Func<int, int, int> speciesSpawn)
     {
-        return hunts.Contains(speciesSpawn);
+        return preySpecies.Contains(speciesSpawn);
     }
 }
 
@@ -80,7 +80,7 @@ public class HuntBehavior : IBehavior
 
         // Single BFS flood. Same passability as the mover uses, so anything we
         // find a path to is genuinely reachable this tick.
-        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.IsCreatureSpawnable);
+        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
 
         // Scan every species-holder in the world; keep the reachable ones on our
         // prey list. For each, find its closest BFS-reachable 8-neighbor.

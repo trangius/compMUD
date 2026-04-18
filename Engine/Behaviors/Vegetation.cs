@@ -2,15 +2,15 @@ namespace Engine;
 
 // State: living vegetation that spreads to nearby cells and occasionally spawns
 // new plants elsewhere. Species identity lives on the separate Species component;
-// Vegetation only carries growth rates and the cluster cap. localCap + localRadius
-// put a ceiling on cluster density — once a neighborhood is saturated, new growth
-// has to go elsewhere.
+// Vegetation only carries growth rates and the cluster cap. clusterCap +
+// clusterRadius put a ceiling on cluster density — once a neighborhood is
+// saturated, new growth has to go elsewhere.
 public class Vegetation
 {
     public double spreadChance = 0.01;
     public double spawnChance = 0.0;
-    public int localCap = int.MaxValue;  // max same-species count tolerated in target's neighborhood
-    public int localRadius = 2;          // Chebyshev radius that defines "neighborhood"
+    public int clusterCap = int.MaxValue;  // max same-species count tolerated in target's neighborhood
+    public int clusterRadius = 2;          // Chebyshev radius that defines "neighborhood"
 }
 
 // Behavior: try to spread to an adjacent open cell, or spawn at a random open cell.
@@ -83,14 +83,14 @@ public class GrowBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Is the target cell's neighborhood below the species' local cap? Positive
+    // Is the target cell's neighborhood below the species' cluster cap? Positive
     // check — we ask "room remaining?", not "am I blocked?". Delegates the
     // species-match counting to Species.CountInRadius.
     // ----------------------------------------------------------------------------
     private static bool HasRoom(int tx, int ty, Vegetation veg, Species species, int selfId)
     {
-        if (veg.localCap == int.MaxValue) return true;
-        return Species.CountInRadius(tx, ty, veg.localRadius, species.spawn, selfId) < veg.localCap;
+        if (veg.clusterCap == int.MaxValue) return true;
+        return Species.CountInRadius(tx, ty, veg.clusterRadius, species.spawn, selfId) < veg.clusterCap;
     }
 
     // ----------------------------------------------------------------------------

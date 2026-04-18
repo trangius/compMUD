@@ -93,7 +93,7 @@ public static class Archetypes
         World.AttachComponent(e, new Walkable());
         World.AttachComponent(e, new Species { spawn = CreateBush });
         World.AttachComponent(e, new Scheduler { period = 30 });
-        World.AttachComponent(e, new Vegetation { spreadChance = 0.1, spawnChance = 0.0005, localCap = 2, localRadius = 2 });
+        World.AttachComponent(e, new Vegetation { spreadChance = 0.1, spawnChance = 0.0005, clusterCap = 2, clusterRadius = 2 });
         World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 1500, dropSpriteId = "berries" });
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));
         return e;

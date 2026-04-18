@@ -173,7 +173,7 @@ static void ShowCellInfo(int x, int y)
         if (World.HasComponent<Predator>(id))
         {
             Predator pr = World.GetComponent<Predator>(id);
-            string preyNames = string.Join(",", pr.hunts.Select(f => f.Method.Name.Replace("Create", "")));
+            string preyNames = string.Join(",", pr.preySpecies.Select(f => f.Method.Name.Replace("Create", "")));
             tags.Add($"Predator:[{preyNames}]");
         }
         if (World.HasComponent<Corpse>(id)) tags.Add("Corpse");
