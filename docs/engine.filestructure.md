@@ -33,7 +33,9 @@ Engine/
                       See engine.five-buckets.md for the pattern.
     Behavior.cs       IBehavior interface + Behaviors container component (pick one).
     Hunt.cs           Predator { hunts: HashSet<spawn> }, Attacking, HuntBehavior.
-    Flee.cs           FleeBehavior (no separate marker — species membership does it).
+    RunFromPredator.cs
+                      RunFromPredatorBehavior — AI reflex when a predator is in sight.
+                      No separate marker — species membership via Predator.preySpecies does it.
     Wander.cs         WanderBehavior (random step fallback).
     Rest.cs           RestBehavior (fed entities sit still).
     Feeding.cs        Drops, ResourceItem, ResourceCategory, Resources, Diet,

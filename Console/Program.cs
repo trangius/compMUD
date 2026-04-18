@@ -170,6 +170,11 @@ static void ShowCellInfo(int x, int y)
             Scheduler sch = World.GetComponent<Scheduler>(id);
             tags.Add($"Pace:{sch.period} next:{sch.nextActTick}");
         }
+        if (World.HasComponent<Grappled>(id))
+        {
+            Grappled gp = World.GetComponent<Grappled>(id);
+            tags.Add($"Grappled(by:{gp.attackerId})");
+        }
         if (World.HasComponent<Predator>(id))
         {
             Predator pr = World.GetComponent<Predator>(id);

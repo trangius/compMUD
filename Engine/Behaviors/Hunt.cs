@@ -154,6 +154,12 @@ public class HuntBehavior : IBehavior
             // Raider mission complete — flip the flag and ReturnToForest takes over next tick
             if (killed && World.HasComponent<RaidingWolf>(id))
                 World.GetComponent<RaidingWolf>(id).hasKilled = true;
+
+            // Pin the survivor so it can't just flee next tick. AttachComponent
+            // replaces any existing Grappled — so a second bite refreshes the grip.
+            if (!killed)
+                World.AttachComponent(cachedPreyId, new Grappled { attackerId = id });
+
             return 3;
         }
 

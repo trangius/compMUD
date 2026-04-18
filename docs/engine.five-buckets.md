@@ -31,7 +31,7 @@ grows to hundreds of components.
 - `IBehavior` implementations. An entity's `Behaviors` component holds a list
   of them. The dispatcher asks each `WouldAct`, runs only the highest-priority
   winner's `Act`. One action per entity per tick.
-- Examples: `FleeBehavior`, `HuntBehavior`, `WanderBehavior`,
+- Examples: `RunFromPredatorBehavior`, `HuntBehavior`, `WanderBehavior`,
   `ReturnToForestBehavior`, future `AttackBehavior`, `CastSpellBehavior`.
 - **Pattern**:
   ```csharp
@@ -45,8 +45,9 @@ grows to hundreds of components.
   `Act` returns the action's cost in periods (1 = baseline). Slower actions
   (bite, cast, mate) return higher — see `engine.scheduler.md`.
 - **Priorities** (rabbit example, higher wins):
-  - `FleeBehavior` 100, `HarvestBehavior` 40, `FeedBehavior` 30,
-    `BreedBehavior` 20, `RestBehavior` 1, `WanderBehavior` 0.
+  - `EscapeGrappleBehavior` 100, `RunFromPredatorBehavior` 100,
+    `HarvestBehavior` 40, `FeedBehavior` 30, `BreedBehavior` 20,
+    `RestBehavior` 1, `WanderBehavior` 0.
 
 ---
 

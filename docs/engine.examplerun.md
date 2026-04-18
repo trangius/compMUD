@@ -119,13 +119,13 @@ foreach (int id in behaviorsList) {
 ```
 
 Rabbit 42's Behaviors list:
-`[FleeBehavior, HarvestBehavior, FeedBehavior, BreedBehavior, RestBehavior, WanderBehavior]`
+`[EscapeGrappleBehavior, RunFromPredatorBehavior, HarvestBehavior, FeedBehavior, BreedBehavior, RestBehavior, WanderBehavior]`
 
 Each `WouldAct` is a full method — they read world state via
 `HasComponent`/`GetComponent`/`EntitiesAt`, maybe call `FindNearestEntity` or
 `Algorithms.BFS`, sometimes set cached fields.
 
-- `FleeBehavior.WouldAct(42)`: calls `FindNearestEntity` with a filter that
+- `RunFromPredatorBehavior.WouldAct(42)`: calls `FindNearestEntity` with a filter that
   scans cells within Euclidean 15 looking for any entity with a `Predator`
   component whose `hunts` set contains `CreateRabbit`. No wolves right now.
   Returns false.

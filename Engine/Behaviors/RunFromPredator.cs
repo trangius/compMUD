@@ -1,9 +1,12 @@
 namespace Engine;
 
-// Behavior: run from the nearest creature whose prey list includes my species.
-// No dedicated "Prey" marker — an entity qualifies as prey by being on someone's
-// Predator.preySpecies. That way one source of truth decides the wolf↔rabbit pairing.
-public class FleeBehavior : IBehavior
+// Behavior: reflex. Run from the nearest creature whose prey list includes my
+// species. No dedicated "Prey" marker — an entity qualifies as prey by being on
+// someone's Predator.preySpecies. That way one source of truth decides the
+// wolf↔rabbit pairing.
+// Named for the reflex: the entity runs when it sees a predator. Reserve the
+// generic verb "Flee" for a future player-callable skill — distinct concept.
+public class RunFromPredatorBehavior : IBehavior
 {
     public int Priority => 100;
 
@@ -31,7 +34,7 @@ public class FleeBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell away from the cached threat. Cost 1 — panic is quick.
+    // Step one cell away from the cached threat. Cost 1 — a reflex step is quick.
     // ----------------------------------------------------------------------------
     public int Act(int id)
     {

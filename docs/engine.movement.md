@@ -50,7 +50,7 @@ realism loss.
 | `FeedBehavior` | BFS — scans reached cells for edibles | `TryMove` with cached first-step |
 | `HuntBehavior` | BFS — scans reachable neighbors of prey | `TryMove` with cached first-step |
 | `ReturnToForestBehavior` | BFS — nearest reachable `Tree` | `TryMove` with cached first-step |
-| `FleeBehavior` | `FindNearestEntity` (Euclidean circle) | `MoveAwayFrom` (one-step greedy) |
+| `RunFromPredatorBehavior` | `FindNearestEntity` (Euclidean circle) | `MoveAwayFrom` (one-step greedy) |
 | `BreedBehavior` | `FindNearestEntity` | `MoveToward` (one-step greedy) |
 | `WanderBehavior` | — | `Wander` (uniform random) |
 
@@ -70,7 +70,7 @@ Consequences:
 - With obstacles, a prey can be "visible" (Euclidean) but unreachable (BFS
   needs > maxRange steps around a pond). `HuntBehavior` dodges this by
   BFS-first target discovery — it only considers prey it can actually path
-  to. `FleeBehavior` / `BreedBehavior` still use Euclidean; they don't
+  to. `RunFromPredatorBehavior` / `BreedBehavior` still use Euclidean; they don't
   path-commit, so "see but can't reach" isn't a bug for them.
 
 ## 8-connected adjacency

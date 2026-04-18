@@ -89,7 +89,7 @@ pause, matches the biological weight).
 
 | Behavior | Action | Cost |
 |---|---|---|
-| `FleeBehavior` | step | 1 |
+| `RunFromPredatorBehavior` | step | 1 |
 | `WanderBehavior` | step | 1 |
 | `RestBehavior` | no-op | 1 |
 | `FeedBehavior` | walk toward food | 1 |

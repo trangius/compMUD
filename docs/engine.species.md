@@ -57,8 +57,8 @@ shape as `Diet.Accepts(resource)` — set membership.
 - **`Breeding.globalCap`** — count world-wide same-species via `Species.CountAll`.
 - **`Vegetation.HasRoom`** — count local same-species via `Species.CountInRadius`.
 - **`Predator.preySpecies`** — which species this entity hunts.
-- **`FleeBehavior`** — prey finds a predator whose `preySpecies` contains its own
-  species.
+- **`RunFromPredatorBehavior`** — prey finds a predator whose `preySpecies` contains
+  its own species.
 
 Every place that asks "who's my kind?" or "who do I care about?" goes through
 `Species.spawn`.

@@ -26,7 +26,8 @@ public static class Archetypes
         World.AttachComponent(e, new Scheduler { period = 15 });
         World.AttachComponent(e, new Breeding { breedCooldown = 400, breedChance = 0.1, globalCap = 12 });
         World.AttachComponent(e, new Behaviors(
-            new FleeBehavior(),
+            new EscapeGrappleBehavior(rng),
+            new RunFromPredatorBehavior(),
             new HarvestBehavior(),
             new FeedBehavior(rng),
             new BreedBehavior(rng),
@@ -53,7 +54,7 @@ public static class Archetypes
         World.AttachComponent(e, new RaidingWolf());
         World.AttachComponent(e, new Sensing(100));
         World.AttachComponent(e, new Health(30));
-        World.AttachComponent(e, new Attacking(8));
+        World.AttachComponent(e, new Attacking(3));
         World.AttachComponent(e, new Energy(1000));
         World.AttachComponent(e, new Drops { name = "Wolf corpse", resourceType = Resources.Meat, amount = 400, dropSpriteId = "corpse" });
         World.AttachComponent(e, new Diet(Resources.Meat) { hungerThreshold = 0.9 });

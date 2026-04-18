@@ -54,11 +54,20 @@ public static class World
             if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
                 continue;
 
+            // Grapple auto-release: if the attacker is gone or no longer adjacent,
+            // drop the stale Grappled state so the victim can act normally again.
+            if (HasComponent<Grappled>(id) && !GetComponent<Grappled>(id).IsStillValid(id))
+                DetachComponent<Grappled>(id);
+
+            // Grappled entities run only behaviors that opt in via ICanActWhenGrappled
+            bool isGrappled = HasComponent<Grappled>(id);
+
             // Ask every behavior if it wants to act; remember the highest-priority yes
             IBehavior? winner = null;
             int bestPriority = int.MinValue;
             foreach (IBehavior b in GetComponent<Behaviors>(id).list)
             {
+                if (isGrappled && !(b is ICanActWhenGrappled)) continue;
                 if (b.WouldAct(id) && b.Priority > bestPriority)
                 {
                     winner = b;

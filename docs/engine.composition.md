@@ -10,7 +10,7 @@ code.
   `Drain()` and `Restore()`. `Species` has `CountAll()`, `CountInRadius()`.
   Components are small objects with methods, not dumb data bags manipulated
   by external systems.
-- **Behaviors act directly.** `FleeBehavior` moves the entity by calling
+- **Behaviors act directly.** `RunFromPredatorBehavior` moves the entity by calling
   `MovementHelper.MoveAwayFrom(...)`. No intents, no middlemen, no deferred
   resolution queue. If a behavior wants something to happen, it makes it
   happen that tick.
