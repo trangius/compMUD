@@ -94,7 +94,7 @@ public class ReturnToForestBehavior : IBehavior
 // singleton spawner entity (see Archetypes.CreateWolfRaidSpawner).
 public class WolfRaidEffect : IEffect
 {
-    public double raidChance = 0.0015;  // probability per tick — roughly 1 raid per 670 ticks
+    private double raidChance = 0.0015;  // probability per tick — roughly 1 raid per 670 ticks
 
     private Random rng;
 

@@ -31,7 +31,7 @@ public class Drops
     public required ResourceCategory resourceType;  // must match an eater's Diet
     public required int amount;                  // no silent zero-energy drops
     public required string dropSpriteId;
-    public int dropLayer = 3;
+    private int dropLayer = 3;
 
     // ----------------------------------------------------------------------------
     // Create a resource item in the world from these drop values.

@@ -65,8 +65,8 @@ public class BFSResult
 {
     public Dictionary<(int x, int y), int> distance = new Dictionary<(int, int), int>();
     public Dictionary<(int x, int y), (int x, int y)> cameFrom = new Dictionary<(int, int), (int, int)>();
-    public int startX { get; }
-    public int startY { get; }
+    private int startX { get; }
+    private int startY { get; }
 
     public BFSResult(int startX, int startY)
     {
