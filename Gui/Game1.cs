@@ -25,6 +25,12 @@ public class Game1 : Game
     // LoadContent to roughly a third of the main cell font.
     private SpriteFontBase smallFont;
 
+    // Sidebar font — about two thirds of the main cell size so more info fits
+    // next to the map. Drawn with its own line height / column width below.
+    private SpriteFontBase sidebarFont;
+    private int sidebarLineHeight;
+    private int sidebarColWidth;
+
     // 1×1 white texture — we tint and stretch it to draw the per-creature bars.
     // Creating one pixel once is cheaper than a new RenderTarget per bar.
     private Texture2D pixel;
@@ -150,6 +156,13 @@ public class Game1 : Game
         // Small font for the id labels drawn on top of each creature's cell
         int smallFontSize = Math.Max(8, computedFontSize / 3);
         smallFont = fontSystem.GetFont(smallFontSize);
+
+        // Sidebar font — smaller than the grid font so more rows fit.
+        int sidebarFontSize = Math.Max(10, computedFontSize * 3 / 5);
+        sidebarFont = fontSystem.GetFont(sidebarFontSize);
+        Vector2 sidebarChar = sidebarFont.MeasureString("M");
+        sidebarColWidth = (int)Math.Ceiling(sidebarChar.X);
+        sidebarLineHeight = (int)Math.Ceiling(sidebarChar.Y);
 
         Window.Title = $"Explorer — {ticksPerSecond} ticks/s";
     }
@@ -335,17 +348,18 @@ public class Game1 : Game
         string sep = new string('\u2500', sidebarCharWidth);
 
         // Title
-        font.DrawText(spriteBatch, "EXPLORER", new Vector2(sidebarX, line * cellHeight), Color.White);
+        sidebarFont.DrawText(spriteBatch, "EXPLORER", new Vector2(sidebarX, line * sidebarLineHeight), Color.White);
         line++;
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * cellHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * sidebarLineHeight), Color.Gray);
         line++;
 
-        // Controls legend at the bottom
-        int legendStart = World.mapHeight - 5;
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStart * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, (legendStart + 1) * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, (legendStart + 2) * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "`   Debug panel", new Vector2(sidebarX, (legendStart + 3) * cellHeight), Color.Gray);
+        // Controls legend at the bottom — rows measured in grid cells so it
+        // still pins near the bottom edge of the map.
+        int legendStart = World.mapHeight * cellHeight - 5 * sidebarLineHeight;
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStart), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, legendStart + 1 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStart + 2 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "`   Debug panel", new Vector2(sidebarX, legendStart + 3 * sidebarLineHeight), Color.Gray);
     }
 
     // ------------------------------------------------------------------------
@@ -361,14 +375,19 @@ public class Game1 : Game
         int line = 0;
         string sep = new string('\u2500', sidebarCharWidth);
 
+        // All sidebar rows are measured in sidebarLineHeight (not cellHeight),
+        // so a shrunk font means more rows fit next to the same map.
+        int lh = sidebarLineHeight;
+        int cw = sidebarColWidth;
+
         // Header — turn, speed, species counts
-        font.DrawText(spriteBatch, "DEBUG", new Vector2(sidebarX, line * cellHeight), Color.White);
+        sidebarFont.DrawText(spriteBatch, "DEBUG", new Vector2(sidebarX, line * lh), Color.White);
         line++;
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * cellHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
-        font.DrawText(spriteBatch, $"Turn: {World.tickCount}", new Vector2(sidebarX, line * cellHeight), new Color(200, 200, 150));
+        sidebarFont.DrawText(spriteBatch, $"Turn: {World.tickCount}", new Vector2(sidebarX, line * lh), new Color(200, 200, 150));
         line++;
-        font.DrawText(spriteBatch, $"Speed: {ticksPerSecond} ticks/s", new Vector2(sidebarX, line * cellHeight), new Color(150, 150, 150));
+        sidebarFont.DrawText(spriteBatch, $"Speed: {ticksPerSecond} ticks/s", new Vector2(sidebarX, line * lh), new Color(150, 150, 150));
         line++;
 
         int rabbits = 0, wolves = 0;
@@ -379,34 +398,36 @@ public class Game1 : Game
             else if (name == "Wolf") wolves++;
         }
         int corpses = World.AllWithComponent<Corpse>().Count;
-        font.DrawText(spriteBatch, $"R:{rabbits} W:{wolves} C:{corpses}", new Vector2(sidebarX, line * cellHeight), Color.White);
+        sidebarFont.DrawText(spriteBatch, $"R:{rabbits} W:{wolves} C:{corpses}", new Vector2(sidebarX, line * lh), Color.White);
         line++;
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * cellHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
 
         // Creature-row geometry — label then three fixed bar columns
         int labelChars = 6;
-        int barCols = 7;                         // chars per bar column
-        int barColWidth = barCols * cellWidth;
+        int barCols = 7;
+        int barColWidth = barCols * cw;
         int barGap = 2;
-        int barsStartX = sidebarX + labelChars * cellWidth;
-        int barH = cellHeight * 3 / 5;           // bar sits centered in the row
+        int barsStartX = sidebarX + labelChars * cw;
+        int barH = lh * 3 / 5;
 
         // Column headers — each label drawn in its bar's own color so the
         // color→meaning mapping is visible above the rows that use it.
-        font.DrawText(spriteBatch, "HP", new Vector2(barsStartX, line * cellHeight), Color.Red);
-        font.DrawText(spriteBatch, "Energy", new Vector2(barsStartX + barColWidth, line * cellHeight), Color.Blue);
-        font.DrawText(spriteBatch, "Breed", new Vector2(barsStartX + 2 * barColWidth, line * cellHeight), Color.Green);
-        font.DrawText(spriteBatch, "Grap", new Vector2(barsStartX + 3 * barColWidth, line * cellHeight), Color.Orange);
+        sidebarFont.DrawText(spriteBatch, "HP", new Vector2(barsStartX, line * lh), Color.Red);
+        sidebarFont.DrawText(spriteBatch, "Energy", new Vector2(barsStartX + barColWidth, line * lh), Color.Blue);
+        sidebarFont.DrawText(spriteBatch, "Breed", new Vector2(barsStartX + 2 * barColWidth, line * lh), Color.Green);
+        sidebarFont.DrawText(spriteBatch, "Grap", new Vector2(barsStartX + 3 * barColWidth, line * lh), Color.Orange);
         line++;
 
-        // Budget the rest of the sidebar: keep rows for log + controls at bottom
-        int bottomReserved = 7;                  // separator + log lines + controls
-        int maxCreatureLine = World.mapHeight - bottomReserved;
+        // Bottom area (in pixels) reserves ~5 rows of controls plus log.
+        int sidebarHeight = World.mapHeight * cellHeight;
+        int controlsBlockHeight = 5 * lh;
+        int legendStartY = sidebarHeight - controlsBlockHeight;
+        int maxCreatureY = legendStartY - 6 * lh;   // leave a few rows for the log
 
         foreach (int id in World.AllWithComponent<Health>())
         {
-            if (line >= maxCreatureLine) break;
+            if (line * lh >= maxCreatureY) break;
 
             string glyph = "?";
             Color rowColor = Color.White;
@@ -420,11 +441,11 @@ public class Game1 : Game
                 }
             }
 
-            int y = line * cellHeight;
-            int barY = y + (cellHeight - barH) / 2;
+            int y = line * lh;
+            int barY = y + (lh - barH) / 2;
 
             // Glyph + id at left. Padded so ids of different widths align.
-            font.DrawText(spriteBatch, $"{glyph} {id,3}", new Vector2(sidebarX, y), rowColor);
+            sidebarFont.DrawText(spriteBatch, $"{glyph} {id,3}", new Vector2(sidebarX, y), rowColor);
 
             // HP — always present (every row has Health, by selection above)
             Health hp = World.GetComponent<Health>(id);
@@ -453,33 +474,32 @@ public class Game1 : Game
             if (World.HasComponent<Grappled>(id))
             {
                 int grapX = barsStartX + 3 * barColWidth;
-                DrawBarRect(grapX, barY, 2 * cellWidth, barH, 1f, Color.Orange);
+                DrawBarRect(grapX, barY, 2 * cw, barH, 1f, Color.Orange);
             }
 
             line++;
         }
 
         // Separator before the message log
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * cellHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
 
-        // Message log — fills whatever rows are left above the controls
-        int legendStart = World.mapHeight - 5;
-        int logCount = Math.Max(0, legendStart - line);
-        logCount = Math.Min(World.messageLog.Count, logCount);
+        // Message log fills whatever rows are left above the controls block
+        int firstLogLine = line;
+        int availableLogRows = Math.Max(0, (legendStartY / lh) - line);
+        int logCount = Math.Min(World.messageLog.Count, availableLogRows);
         for (int i = 0; i < logCount; i++)
         {
             string msg = World.messageLog[i];
             if (msg.Length > sidebarCharWidth)
                 msg = msg.Substring(0, sidebarCharWidth);
-            font.DrawText(spriteBatch, msg, new Vector2(sidebarX, line * cellHeight), new Color(180, 180, 180));
-            line++;
+            sidebarFont.DrawText(spriteBatch, msg, new Vector2(sidebarX, (firstLogLine + i) * lh), new Color(180, 180, 180));
         }
 
-        // Controls legend pinned at the bottom
-        font.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStart * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, (legendStart + 1) * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, (legendStart + 2) * cellHeight), Color.Gray);
-        font.DrawText(spriteBatch, "`   Game panel", new Vector2(sidebarX, (legendStart + 3) * cellHeight), Color.Gray);
+        // Controls legend pinned at the bottom (pixel-aligned, not row-aligned)
+        sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStartY), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, legendStartY + 1 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStartY + 2 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "`   Game panel", new Vector2(sidebarX, legendStartY + 3 * lh), Color.Gray);
     }
 }
