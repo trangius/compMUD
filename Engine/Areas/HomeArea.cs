@@ -54,34 +54,45 @@ public static class HomeArea
             }
         }
 
-        // Trees — a dense forest in the NW corner (wolves emerge from and retreat
-        // to these cells), plus a few scattered trees across the rest of the map.
+        // Trees — two tight forest clusters in the NW (wolves emerge from and
+        // retreat to these cells), plus a few scattered trees across the rest.
         int treeCount = (width * height) / 20;
         int forestTrees = treeCount * 2 / 3;
         int scatteredTrees = treeCount - forestTrees;
 
-        // Dense cluster in NW corner — high chance of trees inside this box
-        int forestMaxX = width / 3;
-        int forestMaxY = height * 2 / 3;
+        // Pick forest centers inside the NW third. Each tree will drop near one
+        // of these, giving a packed-middle / sparse-edge blob per cluster.
+        int forestRadius = Math.Min(width, height) / 14;
+        List<(int cx, int cy)> forestCenters = new List<(int, int)>();
+        for (int i = 0; i < 2; i++)
+            forestCenters.Add((
+                rng.Next(forestRadius + 2, width / 3),
+                rng.Next(forestRadius + 2, height * 2 / 3)));
+
+        // Drop trees around the centers. Averaging two offsets gives a
+        // triangular distribution — denser at the center, thinning outward.
         for (int i = 0; i < forestTrees; i++)
         {
-            int x = rng.Next(2, forestMaxX);
-            int y = rng.Next(2, forestMaxY);
+            (int cx, int cy) = forestCenters[rng.Next(forestCenters.Count)];
+            int x = cx + (rng.Next(-forestRadius, forestRadius + 1) + rng.Next(-forestRadius, forestRadius + 1)) / 2;
+            int y = cy + (rng.Next(-forestRadius, forestRadius + 1) + rng.Next(-forestRadius, forestRadius + 1)) / 2;
+            if (x < 2 || x >= width - 2 || y < 2 || y >= height - 2) continue;
             if (!World.IsOpenGround(x, y)) continue;
             Archetypes.CreateTree(x, y);
         }
 
-        // A few scattered trees elsewhere so the map isn't a featureless meadow
+        // A few scattered trees elsewhere so the rest of the map isn't bare
         for (int i = 0; i < scatteredTrees; i++)
         {
-            int x = rng.Next(forestMaxX, width - 2);
+            int x = rng.Next(width / 3, width - 2);
             int y = rng.Next(2, height - 2);
             if (!World.IsOpenGround(x, y)) continue;
             Archetypes.CreateTree(x, y);
         }
 
-        // Scatter bushes
-        int bushCount = (width * height) / 25;
+        // Bushes — uniform scatter across the whole map. Fewer total than before
+        // so foraging is not trivial, but no clumping: the rabbits need coverage.
+        int bushCount = (width * height) / 40;
         for (int i = 0; i < bushCount; i++)
         {
             int x = rng.Next(2, width - 2);
@@ -95,7 +106,7 @@ public static class HomeArea
         // block each other's BFS paths on tick 0.
         List<(int x, int y)> placedRabbits = new List<(int, int)>();
         int minRabbitDistSq = 4;
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 8; i++)
         {
             // Accept the cell only if it's creature-spawnable AND far enough from every placed rabbit.
             (int rx, int ry) = World.FindCell((cx, cy) =>

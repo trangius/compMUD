@@ -7,8 +7,9 @@ public class RestBehavior : IBehavior
 {
     public int Priority => 1;
 
-    // Same threshold FeedBehavior uses to stop seeking food — keeps the two in step.
-    private const double minEnergyFraction = 0.6;
+    // Only truly full creatures rest. Below this, Wander runs instead — keeps
+    // the meadow visibly alive even when no one is hungry enough to forage.
+    private const double minEnergyFraction = 0.9;
 
     // ----------------------------------------------------------------------------
     // Willing to rest iff Energy is above the "fed" threshold. Below it, Feed runs.

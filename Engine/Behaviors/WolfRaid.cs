@@ -10,11 +10,13 @@ public class RaidingWolf
 
 // Behavior: after the kill, walk back to any tree cell via BFS. Once standing
 // on a tree cell, the wolf destroys itself — "vanishes into the forest".
-// Priority 50 beats Harvest/Feed/Hunt — once the mission is done, nothing else
-// matters; get out.
+// Priority sits BELOW Feed on purpose: a wolf that just killed drops a corpse
+// underfoot and should eat it before walking off. Feed (30) wins while the
+// corpse is there; once eaten, Return takes the tick. Priority still beats
+// Hunt (20), so the wolf never chases a second rabbit — one kill per raid.
 public class ReturnToForestBehavior : IBehavior
 {
-    public int Priority => 50;
+    public int Priority => 25;
 
     // Cached between WouldAct and Act
     private int cachedStepDx;
@@ -94,7 +96,7 @@ public class ReturnToForestBehavior : IBehavior
 // singleton spawner entity (see Archetypes.CreateWolfRaidSpawner).
 public class WolfRaidEffect : IEffect
 {
-    private double raidChance = 0.0015;  // probability per tick — roughly 1 raid per 670 ticks
+    private double raidChance = 0.001;  // probability per tick — roughly 1 raid per 1000 ticks
 
     private Random rng;
 
