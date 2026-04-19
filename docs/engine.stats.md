@@ -2,18 +2,18 @@
 
 **Stats** are the base attributes of a living being. They feed every
 *derived* ability — bite damage, vision range, action period, escape chance.
-Any rule involving "how good is this creature at X?" eventually reduces to a
-formula on stats.
+Any rule involving "how good is this creature at X?" reduces to a formula
+on stats.
 
 ## The component
 
 ```csharp
 public class Stats
 {
-    public int Strength = 1;
-    public int Agility = 1;
-    public int Perception = 1;
-    public int Toughness = 1;
+    public int Strength;
+    public int Agility;
+    public int Perception;
+    public int Toughness;
     // Future: Mass, Intelligence, Charisma, ...
 }
 ```
@@ -21,10 +21,8 @@ public class Stats
 One shared schema. **Every creature with `Stats` has every field.** Deliberate
 — the distinction between "statted" (rabbits, wolves, future humans) and
 "not statted" (trees, bushes, walls) is binary. A behavior that reads stats
-can trust they're all there.
-
-Scale convention: **1–100**, Dark-Souls-style. Defaults at 1 so adding a new
-field here doesn't require touching every archetype.
+can trust they're all there. New fields default to a low baseline so adding
+a field doesn't require touching every archetype.
 
 ## Stats vs. resources
 
@@ -34,37 +32,43 @@ Separate concepts:
 - **Resources** (`Health`, `Energy`, future `Money`) — stateful values with
   current/max. Drain, refill, bound. They live in their own components.
 
-If you're about to add a new field, ask: does it have a current/max? Does it
-drain? Then it's a resource, not a stat.
+If you're about to add a new field, ask: does it have a current/max? Does
+it drain? Then it's a resource, not a stat.
 
 ## Derived abilities — `StatMath`
 
-Stat-derived formulas that are generically about "reading a stat, returning
+Stat-derived helpers that are generically about "reading a stat, returning
 a value" live in `Engine/Stats/StatMath.cs`:
 
-| Method | Formula | Notes |
-|---|---|---|
-| `VisionRange(id)` | `Perception` | 1:1 → grid cells. Clear mental model. |
-| `ActionPeriod(id)` | `max(1, 85 - Agility)` | Higher Agility → faster. Floor at 1. |
+- `VisionRange(id)` — derived from `Perception`. Used wherever a creature
+  asks "how far can I see?".
+- `ActionPeriod(id)` — derived from `Agility`. Higher Agility means a lower
+  period means faster action. Used by `AgilityPaced.Reschedule`.
 
-**Capability-specific formulas live on the capability's component.** Examples:
+See `StatMath.cs` for the exact formulas; they are plain arithmetic on one
+stat each.
 
-- `Melee.Damage(atkId, defId)` = `max(1, atkStr/25 - defTough/30)` — the
-  `Melee` component owns "how hard does my strike land?" because it's a
-  property of the attacker-vs-defender pairing. Toughness lives here, not in
-  `Health.TakeDamage`, so internal damage sources (starvation) aren't soaked.
-- `Grappled.EscapeChance(victimId)` = `victimAgi / (victimAgi + 3 * attackerStr)`
-  — the `Grappled` state owns the escape formula because it's an interaction
-  between specifically-named attacker and victim entities.
+**Capability-specific formulas live on the capability's component.** Not
+in `StatMath`:
+
+- `Melee.Damage(atkId, defId)` reads the attacker's `Strength` and the
+  defender's `Toughness`. The `Melee` component owns "how hard does my
+  strike land?" because it's a property of the attacker-vs-defender
+  pairing. Toughness lives here, not in `Health.TakeDamage`, so internal
+  damage sources (starvation) aren't soaked.
+- `Grappled.EscapeChance(victimId)` reads the victim's `Agility` against
+  the attacker's `Strength`. The `Grappled` state owns the escape formula
+  because it's an interaction between specifically-named attacker and
+  victim entities.
 
 If a `Weapon` component later stacks on top, `Melee.Damage` composes:
-`Strength + weapon.bonus`. Same for any future interaction-specific formula.
+attacker `Strength` plus the weapon's bonus.
 
 To tune game feel, change the constants in `StatMath` or the relevant
 component. No scatter-fix across behaviors.
 
-Once `StatMath` has 6+ methods or obvious domain splits, extract
-`CombatMath` / `MovementMath` / `PerceptionMath`. Not before.
+Once `StatMath` grows past a handful of methods or obvious domain splits,
+extract `CombatMath` / `MovementMath` / `PerceptionMath`. Not before.
 
 ## Enforcement
 
@@ -75,31 +79,18 @@ path funnels through this helper, so an archetype that forgets to attach
 read a stat.
 
 No marker interface, no dispatcher check — one mechanism, one place to
-look. A reader asking "does this behavior need Stats?" answers the question
-by grep: if the behavior calls a `StatMath` method, it needs Stats.
-
-## Scale tuning in practice
-
-Current archetype values (for reference):
-
-| Creature | Strength | Agility | Perception | Toughness | Derived |
-|---|---|---|---|---|---|
-| Wolf | 80 | 75 | 100 | 50 | bite-vs-rabbit 3, period 10, vision 100 |
-| Rabbit | 10 | 70 | 15 | 15 | bite-vs-wolf 1, period 15, vision 15 |
-
-The 1–100 scale leaves room for weaker (mouse: Agility 50?) and stronger
-(bear: Strength 120? — or cap at 100, adjust formulas). No hard ceiling
-enforced yet.
+look. A reader asking "does this behavior need Stats?" answers the
+question by grep: if the behavior calls a `StatMath` method, it needs
+Stats.
 
 ## When to add a new stat
 
-When a behavior needs one. Not before. Speculative "let's add Charisma
-because maybe someday…" invites drift. Add it the tick some behavior would
-use it; default it to 1 on the `Stats` class so existing archetypes don't
-break.
+Add a new stat when a behavior needs it — not before. Speculative
+"let's add Charisma because maybe someday…" invites drift. Add the stat
+the tick some behavior would use it; give it a low default on the
+`Stats` class so existing archetypes don't break.
 
 ## Related
 
 - `docs/engine.scheduler.md` — how `AgilityPaced` uses `ActionPeriod`.
 - `docs/engine.movement.md` — how `VisionRange` drives BFS range.
-- `todo.stats.md` — longer-term plans (effective stats for items, buff system).

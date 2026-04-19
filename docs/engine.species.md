@@ -1,9 +1,9 @@
 # Species identity
 
-**An entity's species IS its archetype spawn delegate.** Two entities are the
-same species if-and-only-if their `Species.spawn` points at the same method
-(e.g. both point at `Archetypes.CreateRabbit`). Comparison is reference
-equality (pointer equality).
+**An entity's species is its archetype spawn delegate.** Two entities are
+the same species if-and-only-if their `Species.spawn` points at the same
+method (e.g. both point at `Archetypes.CreateRabbit`). Comparison is
+reference equality (pointer equality).
 
 No enum. No string tag. No species registry. The method itself is the ID.
 
@@ -77,7 +77,7 @@ Example — adding hawks that hunt rabbits AND mice:
 Rabbits flee from anything whose `Predator.preySpecies` contains `CreateRabbit` —
 so they'll flee from both wolves and hawks without any extra wiring.
 
-## Gotcha
+## Names aren't identity
 
-Never compare species by name (`named.name`). Names are display strings and
-can collide or drift. Always compare by `Species.spawn` reference.
+Never compare species by name (`named.name`). Names are display strings
+and can collide or drift. Always compare by `Species.spawn` reference.

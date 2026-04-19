@@ -1,4 +1,4 @@
-# The spatial index: Position keeps itself in sync
+# The spatial index
 
 `World` keeps a reverse lookup from cell `(x, y)` to entity ids so that
 "who's at this cell?" is `O(1)` instead of scanning every Position. The rule
@@ -6,7 +6,7 @@ is: **the index is maintained by Position itself, via the generic
 IOnAttach / IOnDetach hooks the component store calls.** Nothing else writes
 to it.
 
-## How the sync actually happens
+## How the sync happens
 
 `Position` implements `IOnAttach` and `IOnDetach`. When `AttachComponent`
 stores a Position, it calls `OnAttach(id)`, which adds the entity to the
@@ -15,7 +15,7 @@ Position, they call `OnDetach(id)` first, which removes it. Moving is
 "detach the old Position, attach a new one" — one line each way in
 `World.MoveEntity`.
 
-The point: `World` knows nothing about Position. The generic dispatcher just
+`World` itself knows nothing about Position. The generic dispatcher just
 calls hooks on whatever components care. Other components (schedulers, in
 particular) use the same hooks for their own init — `IOnAttach`/`IOnDetach`
 are declared at the top of `World.cs`, right next to the store they plug into.
@@ -43,8 +43,8 @@ World.components[typeof(Position)][id] = new Position(newX, newY);
 
 ...the entity has a new `Position` component, but the spatial index still has
 it listed at the old cell. `EntitiesAt(newX, newY)` doesn't find it;
-`EntitiesAt(oldX, oldY)` still returns it. Every spatial query is now lying.
-The bug is silent and compounding.
+`EntitiesAt(oldX, oldY)` still returns it. Nothing warns you, and every
+subsequent spatial query that touches either cell returns wrong results.
 
 `World.AddToSpatialIndex` and `RemoveFromSpatialIndex` are `internal` so
 only `Position.OnAttach` / `OnDetach` can call them — the compiler keeps
@@ -57,14 +57,17 @@ Reading is cheap and free-for-all:
 - `EntitiesAt(x, y)` — list of entity ids at a cell (copy, safe to mutate caller-side).
 - `HasComponent<T>(id)`, `GetComponent<T>(id)` — standard component access.
 - `AllWithComponent<T>()` — every entity with component T (snapshot list).
+- `AllWithComponents<T1, T2>()` — intersection of two component types.
+  Iterates the smaller of the two stores for efficiency.
 - `FindNearestEntity(x, y, range, filter)` — Euclidean-radius search.
 - `FindCell(predicate, rng)` — pick a random cell matching a predicate.
+  Returns `(-1, -1)` if none match within its attempt budget.
 - `IsOpenGround(x, y)`, `CanCreatureBeHere(x, y)` — passability predicates.
 
 ## Consequences
 
 - Passing bare `Position` objects around is safe — they're immutable.
 - A behavior that wants to move its entity calls `MovementHelper.TryMove`,
-  which ends up calling `MoveEntity`. That's the chain; trust it.
+  which ends up calling `MoveEntity`.
 - If you ever find yourself tempted to "just update the component", stop and
   use one of the four methods instead.

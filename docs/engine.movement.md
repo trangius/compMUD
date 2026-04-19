@@ -1,8 +1,7 @@
 # Movement
 
 The engine is **8-connected** — every move (step, flee, flood, spread) considers
-4 cardinals + 4 diagonals, and diagonals cost the same as cardinals. Clusters
-look blobby, paths bend naturally, random walks round out.
+4 cardinals + 4 diagonals, and diagonals cost the same as cardinals.
 
 ## The core helpers
 
@@ -40,8 +39,8 @@ swimmer / climber creatures later. Today everyone passes `World.CanCreatureBeHer
 
 **Diagonals cost 1**, same as cardinals. The returned `Distance` is Chebyshev
 distance. Slight "cheat" on long paths (a diagonal crossing should really be
-~1.41×) but the game is grid-turn-based and the visual benefit beats the
-realism loss.
+~1.41×), but the game is grid-turn-based and the simplification lets
+diagonals behave naturally in movement and BFS alike.
 
 ## Who uses what
 
@@ -54,7 +53,7 @@ realism loss.
 | `BreedBehavior` | `FindNearestEntity` | `MoveToward` (one-step greedy) |
 | `WanderBehavior` | — | `Wander` (uniform random) |
 
-## The range-shape gotcha
+## Vision vs reachability
 
 `StatMath.VisionRange(id)` returns one number (= `Stats.Perception`), but two
 functions interpret it differently:
@@ -62,7 +61,7 @@ functions interpret it differently:
 - **`FindNearestEntity(x, y, range, filter)`** — scans a `[-range, +range]²`
   box, filters by `dx² + dy² ≤ range²`. That's a **Euclidean disk**.
 - **`Algorithms.BFS(x, y, maxRange, ...)`** — flood of 8-connected steps up
-  to `maxRange`. That's a **Chebyshev square** (31×31 at range 15).
+  to `maxRange`. That's a **Chebyshev square**.
 
 Consequences:
 
@@ -70,8 +69,7 @@ Consequences:
   Euclidean is also reachable by BFS, assuming no obstacles.
 - With obstacles, a prey can be "visible" (Euclidean) but unreachable (BFS
   needs > maxRange steps around a pond). `HuntBehavior` dodges this by
-  BFS-first target discovery — it only considers prey it can actually path
-  to. `RunFromPredatorBehavior` / `BreedBehavior` still use Euclidean; they don't
+  BFS-first target discovery — it only considers prey it can path to. `RunFromPredatorBehavior` / `BreedBehavior` still use Euclidean; they don't
   path-commit, so "see but can't reach" isn't a bug for them.
 
 ## 8-connected adjacency

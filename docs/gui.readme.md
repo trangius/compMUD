@@ -8,7 +8,7 @@ presentation layer.
 ## Running
 
 ```bash
-dotnet run --project Game
+dotnet run --project Gui
 ```
 
 ## Still to document

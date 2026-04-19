@@ -4,110 +4,190 @@ Private repo. This README is the index — plain-English summaries of what each
 doc is about. Deep explanations live in `docs/`. Claude's imperative rules
 (including when to update each doc) are in [CLAUDE.md](CLAUDE.md).
 
+## How the engine is built
+
+The engine is a C# library. A frontend builds a starting world by
+calling archetype functions, then advances time by calling `World.Tick`
+in a loop and reads the world's components to render. The engine knows
+nothing about screens or input.
+
+### Entities are integer ids with components attached
+
+Every thing in the world — a rabbit, a bush, a wall — is a plain `int`.
+There is no `Entity` class and no inheritance tree. A fresh id means
+nothing until you attach components to it.
+
+Components are small objects with methods. `Health` has `TakeDamage`.
+`Energy` has `Drain` and `Restore`. `Position` has `X` and `Y`. The
+static `World` stores each component in a dictionary keyed by type and
+id. You read them with `World.HasComponent<T>(id)` and
+`World.GetComponent<T>(id)`.
+
+There is no class called `Rabbit`. There is a function `CreateRabbit`
+in `Archetypes.cs` that attaches the right components to a fresh id:
+`Stats`, `Health`, `Energy`, `Position`, `Species`, a `Scheduler`, a
+`Behaviors` list, an `Effects` list. Change the list of components and
+you change what the entity is. A creature can gain an `Attacking`
+component at runtime, or lose its `Flees` component, without replacing
+the object.
+
+### Every concept fits one of five slots
+
+Every new idea belongs to exactly one of five categories:
+
+- **Entity** — a thing in the world with a position.
+- **State** — a property of one entity (`Walkable`, `Corpse`, `Melee`).
+- **Behavior** — a decision the entity makes on its turn (flee, hunt,
+  eat).
+- **Effect** — something that happens to the entity every tick whether
+  it chose it or not (energy drain, poison, aging).
+- **Category** — a shared label many entities point at (one
+  `Resources.Meat` instance referenced by every piece of meat).
+
+Pick one per concept; don't blur them.
+
+### A tick is two passes
+
+`World.Tick` is the only way time advances. Two passes in order, then
+the tick counter increments.
+
+**Pass one, actions.** For every entity with a `Behaviors` list, the
+dispatcher asks the scheduler whether the entity is due this tick. If
+so, it asks each behavior `WouldAct`; the highest-priority one that
+said yes runs its `Act`. Exactly one action per entity per tick.
+
+**Pass two, effects.** For every entity with an `Effects` list, every
+effect runs. No priority, no competition. Drains, decays, and regens
+fire regardless of what the entity chose — which is why a creature
+cannot escape starvation by choosing not to eat.
+
+### The scheduler paces each entity
+
+Not every entity acts every tick. Each one carries a `Scheduler` that
+records the tick on which its next turn is due; the dispatcher skips it
+until then. For statted creatures the period is derived from `Agility`.
+For simpler things (a bush) the period is a literal number.
+
+Actions cost time in periods. A step costs 1, a bite costs 3, mating
+costs 8. After acting, the scheduler pushes the next turn forward by
+`period × cost`.
+
+### Components keep themselves in sync
+
+To answer "who is on cell (5, 7)?" without scanning every entity, the
+world keeps a reverse map from cell to ids. `Position` maintains that
+map itself: its `OnAttach` hook inserts, its `OnDetach` hook removes.
+No manager class, no system that has to remember to update anything.
+
+The pattern generalises. A component that needs work at attach or
+detach time implements `IOnAttach` or `IOnDetach`, and the component
+store calls the hook. `World` knows nothing about what individual
+components do when they come and go.
+
+### What this gives you in practice
+
+One file per feature. `Hunt.cs` holds the `Predator` marker, the
+`Attacking` companion state, and the `HuntBehavior` together. To add a
+new creature, write one archetype function. To add a new ability — a
+spell, a disease, a weather effect — write a state marker plus a
+behavior or an effect. There is no central switch statement to edit.
+
 ## Doc index
 
-### Top-level
+The docs below are listed in a **suggested reading order**. Read top to
+bottom for the intended flow, or jump to whichever doc answers your
+current question. Each entry says what you'll find inside.
 
-- [docs/projects.md](docs/projects.md) — The repo is split into three
-  projects: the engine (which runs the simulation), a text frontend, and a
-  graphical frontend. The engine knows nothing about screens or input — it
-  just ticks. A frontend is a thin shell that builds a world, then calls
-  tick in a loop. Adding a new frontend is almost nothing.
+### Orient
 
-- [docs/console.readme.md](docs/console.readme.md) — The text frontend.
-  Prints the world as ASCII, takes commands like *look*, *tick*, *info*,
-  *log*. It's the fastest way to watch what the sim is doing and poke
-  individual cells. You can also pipe a script of commands into it for
-  automated runs — that's how most of the gameplay balancing got done.
+- [docs/projects.md](docs/projects.md) — The three .NET projects
+  (`Engine/`, `Console/`, `Gui/`) and the three calls every frontend
+  performs: `World.Initialize`, an area builder, `World.Tick`.
 
-- [docs/gui.readme.md](docs/gui.readme.md) — The graphical frontend. Same
-  engine, prettier pictures. Mostly a placeholder for now with a list of
-  things still to write up — rendering, input, camera, that sort of thing.
+### The model
 
-### Engine — how the sim thinks
+- [docs/engine.composition.md](docs/engine.composition.md) — The
+  composition rules in full: components carry behavior, entities are
+  integer ids with components attached dynamically, `World` is static,
+  no data-only classes. Where logic lives for any given concern, and
+  where it definitely doesn't.
 
-- [docs/engine.composition.md](docs/engine.composition.md) — How the
-  engine is put together. A creature isn't a subclass of Animal of Thing
-  of Object — it's just an id with a bag of small parts stuck to it. Each
-  part knows how to do its own job.
+- [docs/engine.tick.md](docs/engine.tick.md) — `World.Tick` spelled out
+  step by step: the scheduler gate, the `WouldAct` / `Act` competition
+  that picks one action per entity, the effects pass that runs on
+  everyone, and what happens when entities are created or destroyed
+  mid-tick.
 
-- [docs/engine.five-buckets.md](docs/engine.five-buckets.md) — Every new
-  thing you add fits into one of five categories:
-  - **Entity** — a thing in the world.
-  - **State** — a property of a thing.
-  - **Behavior** — a decision a thing makes.
-  - **Effect** — something that happens to a thing automatically.
-  - **Category** — a shared label many things point to.
+### See it run
 
-  Pick one. Don't blur them. The doc has a decision tree and a worked
-  example showing all five slots at once.
+- [docs/engine.examplerun.md](docs/engine.examplerun.md) — A
+  method-by-method trace of startup, a rabbit's first tick, and a
+  later breeding tick. Every name you've read so far now points at
+  real code being called.
 
-- [docs/engine.tick.md](docs/engine.tick.md) — What actually happens when
-  time moves forward by one step. Each creature picks one thing to do —
-  only one, and only the most important one. Then passive stuff (hunger,
-  poison, decay) ticks for everyone. A creature can't dodge starvation by
-  choosing not to eat, because the two passes are separate.
+### The taxonomy, named
 
-- [docs/engine.scheduler.md](docs/engine.scheduler.md) — How the engine
-  decides *how often* each creature gets a turn. Wolves are quicker than
-  rabbits; rabbits are quicker than bushes. Some actions are slow and cost
-  extra time — biting takes longer than stepping, mating takes longer
-  still. That slowness shifts the creature's next turn further into the
-  future, so a wolf mid-kill really is busy.
+- [docs/engine.five-buckets.md](docs/engine.five-buckets.md) — The
+  five categories every concept in the engine fits into (Entity,
+  State, Behavior, Effect, Category), a decision tree for picking one,
+  and a worked example that uses all five at once (a poisoned rabbit
+  corpse).
 
-- [docs/engine.stats.md](docs/engine.stats.md) — Every living thing has a
-  handful of base numbers: how strong, how fast, how sharp-eyed, how
-  tough. They don't change minute to minute — they're the starting
-  character sheet. Things like *how hard does a bite hit*, *how far can
-  you see*, *how often do you get to act* are all computed from these.
-  Health and energy are separate — those *do* go up and down.
+### Topical deep-dives
 
-- [docs/engine.movement.md](docs/engine.movement.md) — How creatures get
-  around on the grid. They can step in any of eight directions, including
-  diagonals, and a diagonal step is treated as the same distance as a
-  cardinal one. Covers chasing a target, fleeing a threat, wandering at
-  random, and finding paths around obstacles. Also a subtle trap where
-  "I can see you" and "I can walk to you" aren't the same thing — a
-  hungry wolf on the wrong side of a pond has learned this.
+- [docs/engine.scheduler.md](docs/engine.scheduler.md) — How each
+  entity is paced: `AgilityPaced` vs `FixedPaced`, the full
+  action-cost table, and why a newly spawned baby waits one full
+  period instead of acting on the tick it was born.
 
-- [docs/engine.species.md](docs/engine.species.md) — How the engine knows
-  whether two animals are the same species. There's no species list or
-  enum; instead, every creature remembers the function that spawned it,
-  and two creatures count as the same species if they were born by the
-  same function. That's enough for mating, hunting, and population caps.
-  Adding a new predator-prey relationship takes almost no setup.
+- [docs/engine.stats.md](docs/engine.stats.md) — The four base stats
+  (Strength, Agility, Perception, Toughness), the `StatMath` derived
+  formulas, the stat-vs-resource distinction, and when a new stat is
+  worth adding.
 
-- [docs/engine.spatial-index.md](docs/engine.spatial-index.md) — The
-  engine keeps a map of "who's at this cell?" so it can answer instantly
-  instead of scanning everyone. The tricky part is keeping that map in
-  sync when things move. There are a few well-defined ways to place,
-  move, or destroy an entity, and they all update the map correctly. If
-  you ever try to sneak around them, the map quietly goes wrong and
-  nothing will warn you.
+- [docs/engine.movement.md](docs/engine.movement.md) — 8-connected
+  movement helpers (`TryMove`, `MoveToward`, `MoveAwayFrom`,
+  `Wander`), generic BFS pathfinding, and the trap that "in vision"
+  (Euclidean disk) is not the same as "reachable" (Chebyshev / BFS).
 
-### Engine — how to extend it
+- [docs/engine.species.md](docs/engine.species.md) — Species identity
+  is the archetype's spawn delegate — no enum, no registry. How
+  breeding, hunting, and population caps all use reference equality on
+  that delegate.
 
-- [docs/engine.filestructure.md](docs/engine.filestructure.md) — A map of
-  the engine's folders and what lives in each. The guiding rule: one file
-  per feature. If you add "hunting", the marker that says "this thing is
-  a predator" and the behavior that makes it hunt live next to each other
-  in the same file, not scattered across the codebase.
+- [docs/engine.spatial-index.md](docs/engine.spatial-index.md) — How
+  `Position` keeps the cell-to-ids reverse map in sync via `IOnAttach`
+  / `IOnDetach`. The four legitimate placement methods, why writing
+  `components[typeof(Position)]` directly corrupts the index silently,
+  and the read-only query surface.
 
-- [docs/engine.add-entity.md](docs/engine.add-entity.md) — A recipe for
-  adding a new creature or object to the world. Figure out what pieces it
-  needs, write them, glue them together in an archetype, drop the
-  archetype into a world somewhere. Has a hawk example that goes end to
-  end, and a list of the usual rookie mistakes.
+### Extending the engine
 
-- [docs/engine.examplerun.md](docs/engine.examplerun.md) — A step-by-step
-  trace of what the computer actually does when you start the program and
-  press tick a few times. Useful when you want to stop thinking about
-  design and just see the sequence of events — startup, a rabbit's first
-  turn, and later a rabbit having a baby.
+- [docs/engine.filestructure.md](docs/engine.filestructure.md) —
+  Folder-by-folder map of `Engine/`. The file-per-feature rule (a
+  marker, its companion state, and the behavior that reads them share
+  one file) and its exceptions (cross-cutting components like
+  `Species`, `Position`, and the schedulers `AgilityPaced` /
+  `FixedPaced`).
+
+- [docs/engine.add-entity.md](docs/engine.add-entity.md) —
+  Step-by-step recipe for adding a new creature: bucket decisions, new
+  files, archetype method, area wiring. Ends with a hawk example and
+  the usual common mistakes.
+
+### Frontends
+
+- [docs/console.readme.md](docs/console.readme.md) — The ASCII
+  frontend and its REPL commands (`look`, `tick`, `info`, `status`,
+  `log`). How to pipe scripted input for automated runs.
+
+- [docs/gui.readme.md](docs/gui.readme.md) — The MonoGame frontend.
+  Placeholder; lists what still needs documenting (renderer, input,
+  camera, sprite loading).
 
 ## Running
 
 ```bash
 dotnet run --project Console   # text frontend — see docs/console.readme.md
-dotnet run --project Game      # GUI frontend  — see docs/gui.readme.md
+dotnet run --project Gui       # GUI frontend  — see docs/gui.readme.md
 ```

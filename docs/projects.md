@@ -4,8 +4,7 @@ Three .NET projects live in this repo, wired together by `composition.sln`:
 
 ## `Engine/`
 The simulation. Pure logic — no I/O, no rendering. Exposes `World`, `Archetypes`,
-and the five-bucket taxonomy that every concept fits into. Everything
-interesting happens here.
+and the five-bucket taxonomy that every concept fits into.
 
 ## `Console/`
 Text-grid frontend. Drives the engine tick by tick from a terminal with commands

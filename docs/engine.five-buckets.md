@@ -1,8 +1,8 @@
 # The five buckets
 
-Every concept in the engine fits exactly one of five buckets. Pick one per new
-concept; don't smoosh. The taxonomy is how the code stays legible when it
-grows to hundreds of components.
+Every concept in the engine fits exactly one of five shapes: **Entity**,
+**State**, **Behavior**, **Effect**, or **Category**. Pick one per new
+concept; don't smoosh.
 
 ---
 
@@ -32,23 +32,26 @@ grows to hundreds of components.
 - `IBehavior` implementations. An entity's `Behaviors` component holds a list
   of them. The dispatcher asks each `WouldAct`, runs only the highest-priority
   winner's `Act`. One action per entity per tick.
-- Examples: `RunFromPredatorBehavior`, `HuntBehavior`, `WanderBehavior`,
-  `ReturnToForestBehavior`, future `AttackBehavior`, `CastSpellBehavior`.
+- Examples: `EscapeGrappleBehavior`, `RunFromPredatorBehavior`,
+  `HuntBehavior`, `FeedBehavior`, `BreedBehavior`, `RestBehavior`,
+  `WanderBehavior`, `ReturnToForestBehavior`; future `AttackBehavior`,
+  `CastSpellBehavior`.
 - **Pattern**:
   ```csharp
   public class SomeBehavior : IBehavior
   {
-      public int Priority => 30;
-      public bool WouldAct(int id) { ... }  // also caches target info
-      public int Act(int id)       { ... }  // uses cached info, returns cost
+      public int Priority => priorityValue;       // higher = more important
+      public bool WouldAct(int id) { ... }        // also caches target info
+      public int Act(int id)       { ... }        // uses cached info, returns cost
   }
   ```
-  `Act` returns the action's cost in periods (1 = baseline). Slower actions
-  (bite, cast, mate) return higher — see `engine.scheduler.md`.
-- **Priorities** (rabbit example, higher wins):
-  - `EscapeGrappleBehavior` 100, `RunFromPredatorBehavior` 100,
-    `HarvestBehavior` 40, `FeedBehavior` 30, `BreedBehavior` 20,
-    `RestBehavior` 1, `WanderBehavior` 0.
+  `Act` returns the action's cost as an integer multiplier of the entity's
+  period. A step is the baseline; slower actions (bite, cast, mate) return
+  larger multipliers. See `engine.scheduler.md`.
+- **Priorities ordering (rabbit example, higher wins):**
+  escape-grapple and flee reflexes at the top, then eating, then breeding,
+  then rest, with wander as a priority-0 fallback. Specific numbers live
+  in each behavior's `Priority` — check the source when tuning.
 
 ---
 

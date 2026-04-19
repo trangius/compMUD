@@ -81,27 +81,47 @@ Never run `git commit` yourself unless explicitly told to (e.g. "commit it",
 The user does the commits.
 
 ## Updating docs
-When you change code, check whether any doc in `docs/` becomes inaccurate.
-Don't wait to be asked. Stale docs rot fast.
 
-Match the change you're making against the triggers below; update every doc
-whose trigger fires, in the same change.
+Docs in `docs/` describe concepts — how the engine is put together, how a
+tick runs, what the buckets are, how breeding or movement or species
+identity works. They do not quote tuning numbers (stat values, costs,
+cooldowns, probabilities, pool sizes). Anything that gets tuned lives in
+the source, not in prose.
 
-| Doc | Update when |
+That means most code changes do not drift the docs. Tuning a stat,
+adjusting a cooldown, changing a drain rate — the code changes and the
+docs still read correctly, because they talk about the mechanism, not the
+number. Don't proactively update docs for that kind of change.
+
+What DOES drift the docs: renaming a class, method, field, or file the
+docs reference by name. When you rename, the docs suddenly describe code
+that no longer exists.
+
+**One mandatory check.** After any rename, run `grep -r "OldName" docs/`.
+Every hit is a doc describing code that doesn't exist. Fix in the same
+change. That's the whole default discipline.
+
+**Larger doc updates happen on explicit request.** When the user asks for
+a doc refresh, a reading pass, or a rewrite, the table below says what
+each doc covers so you can pick the right one. Don't rewrite docs for a
+refactor unless the refactor changed the design, not just the
+implementation.
+
+| Doc | Covers |
 |---|---|
-| `docs/projects.md` | Adding a new frontend / top-level project, or changing how frontends invoke the engine. |
-| `docs/console.readme.md` | Adding or renaming Console commands, or changing sprite glyphs. |
-| `docs/gui.readme.md` | Any Gui work lands. |
-| `docs/engine.composition.md` | The design rules change (e.g. the "one action per tick" rule is revisited). |
-| `docs/engine.five-buckets.md` | A new bucket is introduced, or the decision tree for picking one changes. |
-| `docs/engine.tick.md` | The dispatch order changes or new passes are added. |
-| `docs/engine.scheduler.md` | Scheduler semantics change, or the current species pace tuning shifts. |
-| `docs/engine.stats.md` | Adding a new stat, changing a formula constant, or changing how stats interact with resources. |
-| `docs/engine.movement.md` | Adding a new movement helper, changing connectivity, or introducing new passability semantics (swim, climb, fly). |
-| `docs/engine.species.md` | Introducing new same-species-matching logic, or changing how `Predator` / `Breeding` key off identity. |
-| `docs/engine.spatial-index.md` | The allowed write paths change (adding a new one, or discovering a violation). |
-| `docs/engine.filestructure.md` | Adding, moving, renaming, or splitting files in `Engine/`. |
-| `docs/engine.add-entity.md` | The archetype pattern changes (new required component, new default behavior), or a step in the recipe becomes outdated. |
-| `docs/engine.examplerun.md` | `World.Tick` internals change, or the archetype startup sequence changes enough that the trace becomes inaccurate. |
-| `README.md` | A doc is added, removed, or renamed in `docs/`, or a doc's content shifts enough that its summary in the index no longer tells the truth. |
-| `CLAUDE.md` (this file) | A new rule crystallizes from feedback, or an old one is retired. |
+| `docs/projects.md` | The three .NET projects and the frontend/engine contract. |
+| `docs/console.readme.md` | The Console frontend — commands, sprite legend, scripted-run pattern. |
+| `docs/gui.readme.md` | The MonoGame frontend (placeholder). |
+| `docs/engine.composition.md` | The composition model — integer ids, components-with-methods, the rules. |
+| `docs/engine.five-buckets.md` | The Entity / State / Behavior / Effect / Category taxonomy. |
+| `docs/engine.tick.md` | The two-pass dispatcher (actions then effects), grapple handling, cost multipliers. |
+| `docs/engine.scheduler.md` | `AgilityPaced` vs `FixedPaced`, action-cost mechanics, baby-first-period. |
+| `docs/engine.stats.md` | Stats schema, derived abilities, stat-vs-resource split. |
+| `docs/engine.movement.md` | 8-connected movement helpers, BFS, vision-vs-reachability. |
+| `docs/engine.species.md` | Species identity via the spawn delegate; breeding, hunting, caps. |
+| `docs/engine.spatial-index.md` | Position's self-sync pattern, the four write paths, the read-only query surface. |
+| `docs/engine.filestructure.md` | Folder and file map of `Engine/`; file-per-feature principle. |
+| `docs/engine.add-entity.md` | Recipe for adding a new creature — bucket decisions, hawk example. |
+| `docs/engine.examplerun.md` | Call-stack trace of startup, a quiet tick, a bite-with-grapple, and a breeding tick. |
+| `README.md` | Entry doc — the "how the engine is built" overview plus the doc index. |
+| `CLAUDE.md` (this file) | Imperative rules for working in this repo. |

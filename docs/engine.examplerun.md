@@ -1,215 +1,128 @@
-# Example run — what the CPU actually does
+# Example run
 
-Trace of what happens when `Console/Program.cs` starts and advances a few
-ticks. From the call-stack perspective, not the design perspective —
-`engine.composition.md` covers the "why", this one covers the "what".
+A trace of what happens when `Console/Program.cs` starts and advances a
+few ticks — the view from inside the engine as specific scenes play out.
 
 ## Startup
 
-```csharp
-// Program.cs entry
-World.Initialize(60, 30);
-HomeArea.StartingArea();
-// then the command REPL
-```
+`Program.cs` calls `World.Initialize(width, height)`, then
+`HomeArea.StartingArea()`, then enters the REPL.
 
-### `World.Initialize(60, 30)`
-- `World.mapWidth = 60`, `World.mapHeight = 30`. Just two assignments.
-- No entities yet, no dictionaries populated.
+`Initialize` just assigns `mapWidth` and `mapHeight` — two field writes,
+no entities.
 
-### `HomeArea.StartingArea(seed = 42)`
+`StartingArea` builds the world in stages: border walls, interior grass,
+a pond carved out of grass by destroying the grass entities in an ellipse
+and creating water entities in their place, trees scattered (dense NW,
+thin elsewhere), bushes, rabbits, and the wolf raid spawner.
 
-```csharp
-Random rng = new Random(42);
+Each archetype call creates a new entity (`World.CreateEntity()` returns
+a fresh integer id) and attaches components to it. The first `Position`
+attach registers the entity in the spatial index at its cell.
+`DestroyEntity` walks every component store, fires `OnDetach` on anything
+that implements it (removing from the spatial index is one such hook),
+then drops the id.
 
-// Border walls + interior grass
-for each (x, y) in 60x30:
-    if edge: Archetypes.CreateWall(x, y);
-    else:    Archetypes.CreateGrass(x, y);
-```
+After `StartingArea`, the world holds thousands of integer ids. Most are
+terrain; the `Behaviors` store has one entry per rabbit and bush; the
+`Effects` store has one per rabbit plus the wolf raid spawner (which
+carries only `Effects`, no `Behaviors`).
 
-Each `Create*` call:
-1. `World.CreateEntity()` → new integer id, added to `entities` HashSet.
-2. A few `World.AttachComponent(id, ...)` calls. The first `Position`
-   `AttachComponent` ALSO adds the entity to `spatialIndex[(x,y)]` (the one
-   place that writes to the index besides `MoveEntity`).
+## A quiet tick
 
-After this loop: ~1800 entities, all positioned, most holding a `Position`,
-`Appearance`, and one of {`Walkable` (grass), nothing (wall)}.
+The REPL calls `World.Tick()`. Pass 1 iterates every entity with
+`Behaviors`. Take a well-fed rabbit with no wolves in sight.
 
-```csharp
-// Pond: destroys grass cells in an ellipse, replaces with water
-for each (x, y) in pond-ellipse:
-    foreach (int existing in World.EntitiesAt(x, y))
-        if Walkable: World.DestroyEntity(existing);    // grass gone
-    Archetypes.CreateWater(x, y);                      // water entity placed
-```
+Its `AgilityPaced` scheduler reports it as due. It carries no `Grappled`
+component. The dispatcher walks its behavior list and asks each
+`WouldAct`:
 
-`DestroyEntity` walks all component stores removing the id, removes it from
-`spatialIndex` if positioned, and from `entities`. Each destroyed grass is
-replaced by a water entity at the same cell.
+- `EscapeGrappleBehavior` — not grappled. Declines.
+- `RunFromPredatorBehavior` — `FindNearestEntity` in a Euclidean disk
+  sized by `Stats.Perception`, filtered for any `Predator` whose
+  `preySpecies` contains `CreateRabbit`. No wolves around. Declines.
+- `HarvestBehavior` and `FeedBehavior` — `Diet.IsHungry` returns false
+  while the rabbit is above its hunger threshold. Both decline.
+- `BreedBehavior` — cooldown check, energy gate, global-cap check via
+  `Species.CountAll`, adjacency search. Likely declines early in the run.
+- `RestBehavior` — well-fed, accepts.
+- `WanderBehavior` — always accepts, as the priority-0 fallback.
 
-```csharp
-// Trees (dense NW forest + scattered)
-for i in 0..forestTrees:
-    rng.Next(2, width/3), rng.Next(2, height*2/3) → x, y
-    if IsOpenGround(x, y): Archetypes.CreateTree(x, y);
+`RestBehavior` wins on priority. Its `Act` is a no-op that returns the
+baseline cost. The scheduler pushes `NextActTick` forward by
+`period × cost`.
 
-// same loop for bushes, rabbits, wolf-raid spawner
-```
+Pass 2 runs every effect on every entity. For the rabbit, that's
+`EnergyDrainEffect`: one step of drain, and if Energy hits zero,
+`Health.TakeDamage` bleeds a point and `DeathHelper.DestroyEntityIfDead`
+decides whether to reap the corpse. For the wolf raid spawner,
+`WolfRaidEffect` rolls its chance; usually declines, but occasionally
+picks a random tree and calls `Archetypes.CreateWolf` there. The new
+wolf exists immediately; its `AgilityPaced.OnAttach` seeds `NextActTick`
+one period out, so the wolf waits a turn before its first action.
 
-`CreateRabbit` and `CreateBush` are the heavy archetypes — they attach 10+
-components each, including a `Behaviors` list (which itself is a List of
-`IBehavior`) and an `Effects` list.
+## A bite with a grapple
 
-After `StartingArea`:
-- `entities`: ~1900 integer ids (terrain + a handful of creatures + spawner).
-- `components[typeof(Behaviors)]`: ~75 entries — rabbits, bushes, the wolf
-  raid spawner… wait, spawner has no Behaviors, only Effects. So ~72
-  (rabbits + bushes only).
-- `components[typeof(Effects)]`: ~25 entries (rabbits + the raid spawner;
-  bushes have no Effects).
-- `components[typeof(Scheduler)]`: rabbits + bushes only (spawner has no
-  Scheduler because it has no Behaviors — only Effects need a Scheduler
-  if-and-only-if they pace behavior).
+Later, a raid wolf has chased a rabbit across the pasture and now stands
+adjacent to it. This is how the engine handles the attempted kill and,
+if the rabbit survives, the pin that follows.
 
-## The command REPL
+The wolf's turn comes up. `HuntBehavior.WouldAct` floods the reachable
+cells with BFS out to `Stats.Perception`, scans every `Species` holder
+the flood touched, keeps those on the wolf's `preySpecies` set, and picks
+the nearest. The rabbit is adjacent — the wolf's own cell is a neighbor
+of the rabbit's, BFS distance zero — so the behavior caches the rabbit
+and flags "adjacent".
 
-```csharp
-while (true) {
-    string input = Console.ReadLine();
-    // parse → look, tick, status, info, log, quit
-    if command == "tick" and parts[1] == "1":
-        World.Tick();  // <-- here we go
-        RenderMap();
-}
-```
+`HuntBehavior.Act` reads `Melee.Damage(wolfId, rabbitId)` (attacker's
+`Strength`, defender's `Toughness`), calls `TakeDamage` on the rabbit's
+`Health`, and asks `DeathHelper.DestroyEntityIfDead`. If the rabbit
+survived, the wolf attaches `Grappled { attackerId = wolfId }` to it.
+`Act` returns its bite cost, and the wolf's scheduler pushes forward
+accordingly.
 
-## Inside `World.Tick()` — Pass 1, one entity
+On the rabbit's next turn, Pass 1 runs the grapple check.
+`Grappled.IsStillValid` asks whether the wolf is still alive and still
+Chebyshev-adjacent; the answer is yes, so the pin stays. The dispatcher
+filters the rabbit's behaviors to those implementing
+`ICanActWhenGrappled` — today only `EscapeGrappleBehavior`. It rolls
+`Grappled.EscapeChance` (victim `Agility` against attacker `Strength`);
+success detaches `Grappled` and steps one cell away, failure logs
+"struggles but stays pinned" and burns the turn.
 
-Let's say `tickCount == 0` and we're dispatching rabbit id 42.
+If the wolf had walked off before the rabbit's turn came up,
+`Grappled.IsStillValid` would return false and the dispatcher would
+detach `Grappled` automatically, letting the rabbit's normal behavior
+list compete.
 
-```csharp
-// Snapshot the dispatchable entities
-List<int> behaviorsList = components[typeof(Behaviors)].Keys.ToList();
+## A breeding tick
 
-foreach (int id in behaviorsList) {
-    if (!EntityExists(id)) continue;
+Later still, another rabbit comes up for its turn: off breeding cooldown,
+Energy above the breeding gate, a same-species neighbor (also off
+cooldown) adjacent.
 
-    // Scheduler gate
-    if (HasComponent<Scheduler>(id) && !GetComponent<Scheduler>(id).IsDue(tickCount))
-        continue;
-    // rabbit 42's Scheduler: period=15, nextActTick=0. 0 >= 0 → due.
+`BreedBehavior.WouldAct` checks `Species.CountAll(CreateRabbit)` against
+`Breeding.globalCap`, finds the adjacent mate, rolls the breed chance,
+and returns true. It wins on priority.
 
-    // Ask each behavior in the rabbit's Behaviors list
-    IBehavior winner = null;
-    int best = int.MinValue;
-    foreach (IBehavior b in GetComponent<Behaviors>(42).list) {
-        if (b.WouldAct(42) && b.Priority > best) {
-            winner = b;
-            best = b.Priority;
-        }
-    }
-    winner?.Act(42);
-
-    if (EntityExists(42) && HasComponent<Scheduler>(42))
-        GetComponent<Scheduler>(42).Reschedule(0);
-    // nextActTick = 0 + 15 = 15.
-}
-```
-
-Rabbit 42's Behaviors list:
-`[EscapeGrappleBehavior, RunFromPredatorBehavior, HarvestBehavior, FeedBehavior, BreedBehavior, RestBehavior, WanderBehavior]`
-
-Each `WouldAct` is a full method — they read world state via
-`HasComponent`/`GetComponent`/`EntitiesAt`, maybe call `FindNearestEntity` or
-`Algorithms.BFS`, sometimes set cached fields.
-
-- `RunFromPredatorBehavior.WouldAct(42)`: calls `FindNearestEntity` with a filter that
-  scans cells within Euclidean 15 looking for any entity with a `Predator`
-  component whose `hunts` set contains `CreateRabbit`. No wolves right now.
-  Returns false.
-- `HarvestBehavior.WouldAct(42)`: `Diet.IsHungry(energy)` → `energy.Current <
-  energy.Max * 0.6`. Rabbit spawned with Energy 1500 / 1500, still 1500 →
-  not hungry. Returns false.
-- `FeedBehavior.WouldAct(42)`: same hunger check, false.
-- `BreedBehavior.WouldAct(42)`: cooldown check, energy check, then `Species.CountAll(CreateRabbit)` —
-  iterates every entity with `Species`, counts matches. Then `FindAdjacentMate` —
-  scans 8 neighbors. At tick 0, probably no mate adjacent. Then
-  `FindNearestEntity` for a mate within Sensing. Probably finds one… but
-  `breedChance` roll may skip. Say returns false on this tick.
-- `RestBehavior.WouldAct(42)`: `energy.Current > energy.Max * 0.6` → true.
-  Returns true.
-- `WanderBehavior.WouldAct(42)`: always true (fallback).
-
-Winner = `RestBehavior` (priority 1) over `WanderBehavior` (priority 0).
-`RestBehavior.Act(42)` is a no-op by design.
-
-`Reschedule(0)` → rabbit 42's `nextActTick = 15`. It won't act again until
-`tickCount >= 15`.
-
-## Inside `World.Tick()` — Pass 2
-
-After all behaviors: Effects pass.
+`BreedBehavior.Act` sets both parents' `lastBreedTick` to the current
+tick and spawns a baby through the species delegate:
 
 ```csharp
-foreach (int id in components[typeof(Effects)].Keys.ToList()) {
-    if (!EntityExists(id)) continue;
-    foreach (IEffect ef in GetComponent<Effects>(id).list) {
-        if (!EntityExists(id)) break;
-        ef.Apply(id);
-    }
-}
+int baby = species.spawn(pos.X, pos.Y);
 ```
 
-Rabbit 42 has one effect: `EnergyDrainEffect`.
-- `energy.Drain()` — `Current -= 1`. Energy now 1499.
-- If `Current <= 0`, apply damage. Not today.
+`species.spawn` is `Archetypes.CreateRabbit` — calling it runs the full
+archetype, creating a new integer id and attaching every component a
+rabbit needs. The baby's `Breeding.lastBreedTick` gets set to the current
+tick as well, so the baby is born on cooldown.
 
-The raid spawner entity also has Effects: `WolfRaidEffect`.
-- `rng.NextDouble() >= 0.0015` → usually true (no raid this tick). Returns.
-- Every ~670 ticks it returns false (roll succeeded), picks a random tree,
-  calls `Archetypes.CreateWolf(treePos.X, treePos.Y)`. That `CreateWolf`
-  is itself a big sequence of `AttachComponent` calls. The new wolf
-  appears immediately, with `nextActTick = 0`, and will act on the NEXT
-  `World.Tick()` call.
+The baby is alive as soon as `spawn` returns, but it isn't in Pass 1's
+iteration snapshot, so it doesn't act this tick. Its
+`AgilityPaced.OnAttach` has already seeded `NextActTick` one period out
+— the baby waits a full period before its first turn, same as any other
+action.
 
-## A breeding tick (later on)
-
-Suppose `tickCount == 400`, rabbit 42 (nextActTick=405) is skipped. Rabbit
-51 is due, has Energy 1400/1500, off breeding cooldown, and has rabbit 68
-adjacent. Its `BreedBehavior.WouldAct(51)`:
-
-- `Species.CountAll(CreateRabbit)` returns, say, 11. Below cap of 12.
-- `FindAdjacentMate(...)` finds rabbit 68.
-- `rng.NextDouble() < 0.1` succeeds → roll passes. Caches mate, returns true.
-
-Wins over Rest (priority 20 > 1). `BreedBehavior.Act(51)`:
-
-```csharp
-breeding.lastBreedTick = 400;                                 // own cooldown
-World.GetComponent<Breeding>(68).lastBreedTick = 400;         // mate's cooldown
-int baby = species.spawn(pos.X, pos.Y);                       // <-- THE Func<> call
-// species.spawn IS Archetypes.CreateRabbit. Calling it:
-//   - World.CreateEntity() — new int, say 1903
-//   - AttachComponent(1903, new Position(...))
-//   - AttachComponent(1903, new Appearance {...})
-//   - ... (all the rabbit components)
-//   - Returns 1903.
-World.GetComponent<Breeding>(1903).lastBreedTick = 400;       // baby on cooldown
-World.Log("Rabbit born at (...)");
-```
-
-Baby rabbit 1903 now exists. It has `Scheduler.nextActTick = 0` (default).
-On `tickCount == 401`, it's due (0 <= 401), acts for the first time.
-
-Meanwhile in Pass 2 this same tick, `EnergyDrainEffect` runs on rabbit 1903
-too — it's in `AllWithComponent<Effects>()`, freshly added — and drains 1 of
-its 1500 starting energy. (Babies eat their first meal the same way adults do.)
-
-## Takeaway
-
-Every "event" in the sim is a chain of method calls rooted at `World.Tick`:
-dispatcher → behavior `WouldAct` → behavior `Act` → helper (`TryMove`, BFS,
-`DestroyEntity`, species.spawn(...)) → component mutation. Nothing "runs on
-its own" — time only passes when the frontend calls `World.Tick`.
+Pass 2 does run `EnergyDrainEffect` on the baby this tick, though —
+`AllWithComponent<Effects>()` reads the *current* store and the baby is
+in it. A baby's metabolism starts the moment it's born.

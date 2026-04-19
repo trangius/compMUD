@@ -1,75 +1,49 @@
 # The tick
 
-`World.Tick()` is the only entry point that advances simulation. Two passes,
-in order, then `tickCount++`.
+Nothing happens in the engine between ticks. The world is frozen until
+the frontend calls `World.Tick()`; time in this world is discrete, one
+`Tick()` call at a time. Inside a single call, two passes run in order,
+then `tickCount++`.
 
-## Pass 1 — Actions (pick one per entity)
+## Pass 1 — one action per entity
 
-For every entity with a `Behaviors` component:
+Every entity with a `Behaviors` component gets a turn when its scheduler
+reports it as due. Among willing behaviors (those whose `WouldAct`
+returns true), the one with the highest `Priority` runs its `Act`. That
+`Act` returns a cost, and the scheduler pushes the entity's `NextActTick`
+forward by `period × cost`.
 
-1. **Is it due?** If the entity has a `Scheduler`, check
-   `Scheduler.IsDue(tickCount)`. If not, skip — the entity doesn't get a turn
-   this tick. If no `Scheduler`, always due (default fallback = act every tick).
-2. **Ask every behavior** in the entity's list: `WouldAct(id)`. Each behavior
-   may also cache target info as a side effect (which prey to bite, which
-   bush to walk toward, which direction to flee).
-3. **Highest-priority yes wins.** Among behaviors that returned `true`, take
-   the one with the largest `Priority` value. Run `winner.Act(id)` and capture
-   the cost it returns (1 = baseline, higher = slower). Exactly one behavior
-   runs per entity per tick.
-4. **Reschedule.** If the entity is still alive and has a `Scheduler`, call
-   `Reschedule(tickCount, cost)` — push its `nextActTick` forward by
-   `period × cost`. A wolf biting (cost 2) waits twice as long before its
-   next turn as a wolf stepping (cost 1). See `engine.scheduler.md`.
+Some state components constrain which of an entity's behaviors can
+run. `Grappled`, for example, limits the entity to behaviors marked
+`ICanActWhenGrappled` — today only `EscapeGrappleBehavior`. The
+dispatcher drops `Grappled` automatically at the start of the entity's
+turn if the attacker has died or moved away, so a stale pin can't keep
+the victim out of its own turn. Future states (sleep, stun, paralysis)
+can plug into the same pattern with their own marker interfaces.
 
-Entities with no willing behavior do nothing that tick (e.g. `RestBehavior`
-returns false for a hungry rabbit, `WanderBehavior` is always willing as a
-priority-0 fallback, so something usually runs).
+## Pass 2 — every effect, every tick
 
-## Pass 2 — Effects (run all on every entity)
+For every entity with an `Effects` component, every effect applies in
+list order. No competition. An effect that destroys its host breaks out
+of the effect loop early.
 
-For every entity with an `Effects` component:
+Effects run **wall-clock** — every global tick, every entity, regardless
+of scheduler period. A slow creature drains the same amount of energy
+per global tick as a fast one.
 
-1. Iterate every effect in the list.
-2. Call `effect.Apply(id)` for each.
-3. If an effect destroys the host (e.g. `EnergyDrainEffect` hits 0, takes HP
-   damage, kills), the inner loop breaks out of that entity's effects.
+## Edge cases
 
-Effects run **wall-clock** — every global tick, for every entity, regardless
-of `Scheduler.period`. A slow creature (period 15) still drains 1 energy per
-tick, same as a fast creature (period 1). Biological aging, poison,
-decay — these don't care how fast the victim moves.
+- **Destroying an entity mid-tick is fine.** A behavior or effect can
+  destroy its host or any other entity. The dispatcher's
+  `EntityExists(id)` checks skip anyone already gone.
+- **Creating an entity mid-tick is fine.** Breeding and raid-spawning
+  both do this. The new entity is alive immediately but isn't in the
+  current iteration's snapshot — it starts acting on the next tick.
 
-## Dispatcher order
+## Why two passes
 
-`AllWithComponent<Behaviors>()` returns a snapshot list from the underlying
-dictionary. Entities spawned mid-tick (e.g. a newly-bred baby rabbit, or a
-wolf emerging from a raid in Pass 2) are NOT in the snapshot, so they don't
-act on the tick they were born. They're due next tick.
-
-Iteration order is the dictionary's key order — effectively insertion order
-for the typical .NET `Dictionary<int, object>`. Deterministic given a fixed
-spawn order; not meaningful semantically. Two entities on the same tick see
-the world state as-of-start-of-tick PLUS any changes earlier iterated
-entities made (Pass 1 is sequential, not simultaneous).
-
-## Gotchas
-
-- **Mid-tick destruction is possible.** A behavior's `Act` (or an effect's
-  `Apply`) may destroy its host or another entity. `EntityExists(id)` checks
-  in the dispatcher handle this — skip if already destroyed.
-- **Mid-tick creation is possible.** Breeding, raid-spawning, bush growth
-  all create entities. They're in the world immediately but outside the
-  current tick's iteration snapshot.
-- **`AllWithComponent` returns `.ToList()`.** So mid-tick add/remove doesn't
-  invalidate the iteration. Trust this guarantee; don't try to mutate
-  `World`'s internal dictionaries directly.
-
-## Why it's structured this way
-
-- **One action per tick, structurally**: behaviors compete, only the winner
-  mutates state. No behavior can "chain" into another's action the same tick.
-  This removes an entire category of emergent ordering bugs.
-- **Effects separate**: things that happen *to* an entity (drain, decay) are
-  guaranteed to run regardless of what the entity chose to do. An entity
-  can't "escape" starvation by choosing not to eat — the drain fires anyway.
+One action per entity per turn is enforced by the loop shape, not by
+convention. Effects in a separate pass guarantee that passive processes
+(drain, decay, poison) fire regardless of what the entity chose. A
+creature can't escape starvation by choosing not to eat — Pass 2 runs
+the drain anyway.

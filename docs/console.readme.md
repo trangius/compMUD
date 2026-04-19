@@ -1,9 +1,8 @@
 # Console frontend
 
 Text-grid frontend for `Engine/`. Prints the world as ASCII, reads commands on
-stdin, calls `World.Tick()` on demand. Main purpose: drive the engine tick by
-tick and inspect entity state at specific cells — the fastest way for a
-developer (or Claude) to see what the simulation is actually doing.
+stdin, calls `World.Tick()` on demand. Use it to drive the engine tick by tick
+and inspect entity state at specific cells.
 
 ## Running
 
@@ -20,7 +19,7 @@ dotnet run --project Console
 | `tick <n>` | Run `n` ticks (no render in between), then render. |
 | `status` | Counts: rabbits, wolves, corpses, vegetation, turn. |
 | `info <x> <y>` | List every entity at `(x, y)` with its components. |
-| `log` | Last 20 engine log messages (deaths, attacks, births, etc.). |
+| `log` | Recent engine log messages (deaths, attacks, births, etc.). |
 | `quit` or `q` | Exit. |
 
 ## Typical debug session

@@ -26,16 +26,20 @@ Engine/
                       Feed, Hunt, and ReturnToForest.
 
   Stats/              Static attributes + resources.
-    Stats.cs          Stats (Strength, Agility, Perception).
-    StatMath.cs       Derived-ability formulas (BiteDamage, VisionRange,
-                      ActionPeriod, EscapeChance) + Require helper.
+    Stats.cs          Stats (Strength, Agility, Perception, Toughness).
+    StatMath.cs       Stat-reading helpers (VisionRange, ActionPeriod) +
+                      Require. Interaction-specific formulas (Melee.Damage,
+                      Grappled.EscapeChance) live with their components.
     Health.cs         Health (resource), Corpse marker, DeathHelper.
     Energy.cs         Energy (resource) + EnergyDrainEffect.
 
   Behaviors/          Each file holds: marker State(s) + the Behavior that keys off them.
                       See engine.five-buckets.md for the pattern.
     Behavior.cs       IBehavior interface + Behaviors container component (pick one).
-    Hunt.cs           Predator { hunts: HashSet<spawn> }, Attacking, HuntBehavior.
+    Hunt.cs           Predator { preySpecies: HashSet<spawn> }, Melee (owns
+                      bite-damage formula), HuntBehavior.
+    Grapple.cs        Grappled state { attackerId, IsStillValid, EscapeChance },
+                      ICanActWhenGrappled marker interface, EscapeGrappleBehavior.
     RunFromPredator.cs
                       RunFromPredatorBehavior — AI reflex when a predator is in sight.
                       No separate marker — species membership via Predator.preySpecies does it.
@@ -52,15 +56,16 @@ Engine/
     Effect.cs         IEffect interface + Effects container component (run all).
 
 Console/Program.cs    Text frontend — see docs/console.readme.md.
-Game/Game1.cs         MonoGame frontend — see docs/gui.readme.md.
+Gui/Game1.cs          MonoGame frontend — see docs/gui.readme.md.
 ```
 
 ## File-per-feature principle
 
 A `State` marker lives in the same file as the `Behavior` or `Effect` that
-reads it. `Hunt.cs` holds `Predator` (the state) AND `HuntBehavior` (what uses
-it) AND `Attacking` (companion state for bite damage). One file, one feature.
+reads it. `Hunt.cs` holds `Predator` (the marker that lists prey species),
+`Melee` (the component that owns the bite-damage formula), and
+`HuntBehavior` (what ties them together on a turn). One file, one feature.
 
 Exceptions are cross-cutting State components that no single behavior owns
-(e.g. `Species`, `Scheduler`, `Position`) — those live in their own files or in
-shared infrastructure files.
+(e.g. `Species`, `Position`, the schedulers `AgilityPaced` and `FixedPaced`)
+— those live in their own files or in shared infrastructure files.
