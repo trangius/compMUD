@@ -20,6 +20,11 @@ public class Energy
 
     public void Drain() { Current = Math.Max(0, Current - drainRate); }
     public void Restore(int amount) { Current = Math.Min(Max, Current + amount); }
+
+    // Force-set the current value. Used by area builders that want their starting
+    // creatures hungry so Feed behaviors fire from tick one instead of after a
+    // long Rest-then-drain wait. Clamped to [0, Max].
+    public void SetCurrent(int value) { Current = Math.Clamp(value, 0, Max); }
 }
 
 // Effect: drain one step of energy per tick, starve for 1 HP when empty.

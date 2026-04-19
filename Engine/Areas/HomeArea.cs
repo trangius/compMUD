@@ -123,7 +123,11 @@ public static class HomeArea
 
             if (rx >= 0)
             {
-                Archetypes.CreateRabbit(rx, ry);
+                // Drop them in hungry (well below Diet.hungerThreshold = 0.6 × 3000)
+                // so Feed fires on tick one — otherwise the meadow looks asleep
+                // while everyone slowly drains from full for a few hundred ticks.
+                int rabbitId = Archetypes.CreateRabbit(rx, ry);
+                World.GetComponent<Energy>(rabbitId).SetCurrent(1000);
                 placedRabbits.Add((rx, ry));
             }
         }
