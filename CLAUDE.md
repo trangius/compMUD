@@ -82,8 +82,26 @@ The user does the commits.
 
 ## Updating docs
 When you change code, check whether any doc in `docs/` becomes inaccurate.
-The `README.md` index lists an **"Update when: ..."** trigger next to each
-doc. Match the change you're making against those triggers; update the
-relevant docs in the same change.
-
 Don't wait to be asked. Stale docs rot fast.
+
+Match the change you're making against the triggers below; update every doc
+whose trigger fires, in the same change.
+
+| Doc | Update when |
+|---|---|
+| `docs/projects.md` | Adding a new frontend / top-level project, or changing how frontends invoke the engine. |
+| `docs/console.readme.md` | Adding or renaming Console commands, or changing sprite glyphs. |
+| `docs/gui.readme.md` | Any Gui work lands. |
+| `docs/engine.composition.md` | The design rules change (e.g. the "one action per tick" rule is revisited). |
+| `docs/engine.five-buckets.md` | A new bucket is introduced, or the decision tree for picking one changes. |
+| `docs/engine.tick.md` | The dispatch order changes or new passes are added. |
+| `docs/engine.scheduler.md` | Scheduler semantics change, or the current species pace tuning shifts. |
+| `docs/engine.stats.md` | Adding a new stat, changing a formula constant, or changing how stats interact with resources. |
+| `docs/engine.movement.md` | Adding a new movement helper, changing connectivity, or introducing new passability semantics (swim, climb, fly). |
+| `docs/engine.species.md` | Introducing new same-species-matching logic, or changing how `Predator` / `Breeding` key off identity. |
+| `docs/engine.spatial-index.md` | The allowed write paths change (adding a new one, or discovering a violation). |
+| `docs/engine.filestructure.md` | Adding, moving, renaming, or splitting files in `Engine/`. |
+| `docs/engine.add-entity.md` | The archetype pattern changes (new required component, new default behavior), or a step in the recipe becomes outdated. |
+| `docs/engine.examplerun.md` | `World.Tick` internals change, or the archetype startup sequence changes enough that the trace becomes inaccurate. |
+| `README.md` | A doc is added, removed, or renamed in `docs/`, or a doc's content shifts enough that its summary in the index no longer tells the truth. |
+| `CLAUDE.md` (this file) | A new rule crystallizes from feedback, or an old one is retired. |
