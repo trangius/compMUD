@@ -345,7 +345,8 @@ public class Game1 : Game
     {
         int sidebarX = (World.mapWidth + 1) * cellWidth;
         int line = 0;
-        string sep = new string('\u2500', sidebarCharWidth);
+        // Separator spans from the map's right edge to the screen's right edge
+        string sep = new string('\u2500', (screenWidth - sidebarX) / sidebarColWidth);
 
         // Title
         sidebarFont.DrawText(spriteBatch, "EXPLORER", new Vector2(sidebarX, line * sidebarLineHeight), Color.White);
@@ -353,9 +354,10 @@ public class Game1 : Game
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * sidebarLineHeight), Color.Gray);
         line++;
 
-        // Controls legend at the bottom — rows measured in grid cells so it
-        // still pins near the bottom edge of the map.
-        int legendStart = World.mapHeight * cellHeight - 5 * sidebarLineHeight;
+        // Controls legend pinned to the bottom of the actual screen — the map
+        // often doesn't fill the full screen height (fit loop is width-limited),
+        // so anchoring off mapHeight*cellHeight leaves a black strip below.
+        int legendStart = screenHeight - 5 * sidebarLineHeight;
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStart), Color.Gray);
         sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, legendStart + 1 * sidebarLineHeight), Color.Gray);
         sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStart + 2 * sidebarLineHeight), Color.Gray);
@@ -373,12 +375,18 @@ public class Game1 : Game
     {
         int sidebarX = (World.mapWidth + 1) * cellWidth;
         int line = 0;
-        string sep = new string('\u2500', sidebarCharWidth);
 
         // All sidebar rows are measured in sidebarLineHeight (not cellHeight),
         // so a shrunk font means more rows fit next to the same map.
         int lh = sidebarLineHeight;
         int cw = sidebarColWidth;
+
+        // Sidebar owns every pixel between the map's right edge and the screen.
+        // The font-fit loop lets totalColumns*cellWidth fall short of screenWidth
+        // whenever height was the limiting constraint, leaving a black strip —
+        // so we anchor the sidebar right edge to screenWidth, not cellWidth math.
+        int sidebarPixelWidth = screenWidth - sidebarX;
+        string sep = new string('\u2500', sidebarPixelWidth / cw);
 
         // Header — turn, speed, species counts
         sidebarFont.DrawText(spriteBatch, "DEBUG", new Vector2(sidebarX, line * lh), Color.White);
@@ -403,13 +411,17 @@ public class Game1 : Game
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
 
-        // Creature-row geometry — label then three fixed bar columns
+        // Creature-row geometry — label at left, then four bar columns that
+        // together fill sidebarPixelWidth (map right edge → screen right edge).
         int labelChars = 6;
-        int barCols = 7;
-        int barColWidth = barCols * cw;
+        int labelW = labelChars * cw;
         int barGap = 2;
-        int barsStartX = sidebarX + labelChars * cw;
+        int barColWidth = (sidebarPixelWidth - labelW) / 4;
+        int barsStartX = sidebarX + labelW;
         int barH = lh * 3 / 5;
+
+        // Number of sidebar-font chars that fit — used to truncate log lines.
+        int sidebarChars = sidebarPixelWidth / cw;
 
         // Column headers — each label drawn in its bar's own color so the
         // color→meaning mapping is visible above the rows that use it.
@@ -419,10 +431,11 @@ public class Game1 : Game
         sidebarFont.DrawText(spriteBatch, "Grap", new Vector2(barsStartX + 3 * barColWidth, line * lh), Color.Orange);
         line++;
 
-        // Bottom area (in pixels) reserves ~5 rows of controls plus log.
-        int sidebarHeight = World.mapHeight * cellHeight;
+        // Sidebar extends the full screen height, not just mapHeight*cellHeight —
+        // the font-fit loop usually caps on width, leaving vertical space below
+        // the map. We use that space for the log/controls too.
         int controlsBlockHeight = 5 * lh;
-        int legendStartY = sidebarHeight - controlsBlockHeight;
+        int legendStartY = screenHeight - controlsBlockHeight;
         int maxCreatureY = legendStartY - 6 * lh;   // leave a few rows for the log
 
         foreach (int id in World.AllWithComponent<Health>())
@@ -470,11 +483,11 @@ public class Game1 : Game
                     readiness, Color.Green);
             }
 
-            // Grappled — full orange square in the rightmost slot when pinned
+            // Grappled — full orange bar in the rightmost column when pinned
             if (World.HasComponent<Grappled>(id))
             {
                 int grapX = barsStartX + 3 * barColWidth;
-                DrawBarRect(grapX, barY, 2 * cw, barH, 1f, Color.Orange);
+                DrawBarRect(grapX, barY, barColWidth - barGap, barH, 1f, Color.Orange);
             }
 
             line++;
@@ -491,8 +504,8 @@ public class Game1 : Game
         for (int i = 0; i < logCount; i++)
         {
             string msg = World.messageLog[i];
-            if (msg.Length > sidebarCharWidth)
-                msg = msg.Substring(0, sidebarCharWidth);
+            if (msg.Length > sidebarChars)
+                msg = msg.Substring(0, sidebarChars);
             sidebarFont.DrawText(spriteBatch, msg, new Vector2(sidebarX, (firstLogLine + i) * lh), new Color(180, 180, 180));
         }
 
