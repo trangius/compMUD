@@ -41,8 +41,8 @@ component. The dispatcher walks its behavior list and asks each
 - `RunFromPredatorBehavior` — `FindNearestEntity` in a Euclidean disk
   sized by `Stats.Perception`, filtered for any `Predator` whose
   `preySpecies` contains `CreateRabbit`. No wolves around. Declines.
-- `HarvestBehavior` and `FeedBehavior` — `Diet.IsHungry` returns false
-  while the rabbit is above its hunger threshold. Both decline.
+- `FeedBehavior` — `Diet.IsHungry` returns false while the rabbit is
+  above its hunger threshold. Declines.
 - `BreedBehavior` — cooldown check, energy gate, global-cap check via
   `Species.CountAll`, adjacency search. Likely declines early in the run.
 - `RestBehavior` — well-fed, accepts.

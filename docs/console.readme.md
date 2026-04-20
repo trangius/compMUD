@@ -40,10 +40,10 @@ dotnet run --project Console
 - `~` water
 - `T` tree
 - `*` bush
-- `f` berries (dropped food)
 - `r` rabbit
 - `W` wolf
-- `%` corpse
+- `%` corpse (pink — fresh, still has meat yields)
+- `%` bones (gray — meat stripped; pelt and/or bone yields remain)
 
 Rendering picks the top-layer sprite per cell; layers are set on each archetype's `Appearance`.
 

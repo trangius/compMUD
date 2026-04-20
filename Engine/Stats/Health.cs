@@ -35,13 +35,27 @@ public static class DeathHelper
 
         string label = World.Label(id);
 
-        // Drop resources where the entity died, and mark the drop as a Corpse
-        // (distinguishes creature remains from bush berries for counters/queries)
-        if (World.HasComponent<Drops>(id) && World.HasComponent<Position>(id))
+        // Spawn a corpse entity at the death spot. Its Yields are copied from
+        // the dying creature's declaration — meat, pelt, bones for a rabbit,
+        // etc. Yields are latent (items appear only when drained by eating or
+        // butchering). The corpse stays until its entries are all gone.
+        if (World.HasComponent<Yields>(id) && World.HasComponent<Position>(id))
         {
             Position pos = World.GetComponent<Position>(id);
-            int corpseId = World.GetComponent<Drops>(id).SpawnItem(pos.X, pos.Y);
+            Yields template = World.GetComponent<Yields>(id);
+
+            int corpseId = World.CreateEntity();
+            World.AttachComponent(corpseId, new Position(pos.X, pos.Y));
+            World.AttachComponent(corpseId, new Appearance { spriteId = "corpse", layer = 3 });
+            World.AttachComponent(corpseId, new Named { name = $"{label} corpse" });
+            World.AttachComponent(corpseId, new Walkable());
             World.AttachComponent(corpseId, new Corpse());
+
+            // Fresh Yields instance on the corpse — copy, don't share the list.
+            Yield[] copied = new Yield[template.entries.Count];
+            for (int i = 0; i < template.entries.Count; i++)
+                copied[i] = new Yield(template.entries[i].category, template.entries[i].amount);
+            World.AttachComponent(corpseId, new Yields(copied));
         }
 
         World.Log($"{label} dies");

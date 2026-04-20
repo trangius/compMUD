@@ -60,11 +60,18 @@ public static int CreateHawk(int x, int y)
     World.AttachComponent(e, new Health(/* max */));
     World.AttachComponent(e, new Energy(/* pool */));
     World.AttachComponent(e, new Melee());   // bite damage derived from Stats
+    // What this hawk leaves on the ground when it dies. Latent — items appear
+    // only when something drains a yield (a scavenger eating, a hunter
+    // butchering). No pelt: birds don't have one. Feather would be a new
+    // ResourceCategory if you want to introduce it.
+    World.AttachComponent(e, new Yields(
+        new Yield(Resources.Meat, /* amount */),
+        new Yield(Resources.Bone, /* amount */)
+    ));
     World.AttachComponent(e, new Diet(Resources.Meat));
     World.AttachComponent(e, new Behaviors(
         new EscapeGrappleBehavior(rng),
         new HuntBehavior(),
-        new HarvestBehavior(),
         new FeedBehavior(rng),
         new WanderBehavior(rng)
     ));

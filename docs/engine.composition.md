@@ -54,7 +54,7 @@ public static int CreateRabbit(int x, int y)
     World.AttachComponent(e, new Health(/* max */));
     World.AttachComponent(e, new Species { spawn = CreateRabbit });
     World.AttachComponent(e, new Behaviors(
-        new RunFromPredatorBehavior(),
+        new RunFromPredatorBehavior(rng),
         new FeedBehavior(rng),
         // ...
     ));

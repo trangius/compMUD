@@ -10,8 +10,8 @@ Dictionary<string, (string glyph, ConsoleColor color)> sprites = new()
     ["bush"]    = ("*", ConsoleColor.DarkYellow),
     ["rabbit"]  = ("r", ConsoleColor.White),
     ["wolf"]    = ("W", ConsoleColor.Red),
-    ["corpse"]  = ("%", ConsoleColor.Gray),
-    ["berries"] = ("f", ConsoleColor.DarkYellow),
+    ["corpse"]  = ("%", ConsoleColor.Magenta),
+    ["bones"]   = ("%", ConsoleColor.Gray),
 };
 
 World.Initialize(60, 30);
@@ -197,15 +197,11 @@ static void ShowCellInfo(int x, int y)
             Diet diet = World.GetComponent<Diet>(id);
             tags.Add($"Diet:[{string.Join(",", diet.allowed.Select(k => k.name))}]");
         }
-        if (World.HasComponent<Drops>(id))
+        if (World.HasComponent<Yields>(id))
         {
-            Drops drops = World.GetComponent<Drops>(id);
-            tags.Add($"Drops:{drops.resourceType.name}x{drops.amount}");
-        }
-        if (World.HasComponent<ResourceItem>(id))
-        {
-            ResourceItem item = World.GetComponent<ResourceItem>(id);
-            tags.Add($"Res:{item.resourceType.name}x{item.amount}");
+            Yields yields = World.GetComponent<Yields>(id);
+            string parts = string.Join(",", yields.entries.Select(e => $"{e.category.name}x{e.amount}"));
+            tags.Add($"Yields:[{parts}]");
         }
         if (World.HasComponent<Breeding>(id))
         {

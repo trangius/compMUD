@@ -10,6 +10,9 @@ Engine/
   Species.cs          Species component + CountAll / CountInRadius helpers.
                       Species identity = the spawn delegate (see engine.species.md).
   Tree.cs             Tree marker State (raiding wolves spawn at / retreat to one).
+  Yields.cs           Yield, Yields (latent multi-item production on corpses,
+                      bushes, trees) + ResourceCategory + Resources registry.
+                      Cross-cutting — used by feeding today, butchering/chopping later.
   Scheduler.cs        IScheduler interface + AgilityPaced (stat-driven) +
                       FixedPaced (literal period) + Scheduling.Get helper.
                       See engine.scheduler.md.
@@ -45,8 +48,9 @@ Engine/
                       No separate marker — species membership via Predator.preySpecies does it.
     Wander.cs         WanderBehavior (random step fallback).
     Rest.cs           RestBehavior (fed entities sit still).
-    Feeding.cs        Drops, ResourceItem, ResourceCategory, Resources, Diet,
-                      HarvestBehavior, FeedBehavior. Big file — the "eating" feature.
+    Feeding.cs        Diet, FeedBehavior. The "eating" feature — Yields and
+                      ResourceCategory are the primitives it drains; they live
+                      in Engine/Yields.cs because they're not feeding-specific.
     Breeding.cs       Breeding, BreedBehavior (species-matching via Species.spawn).
     Vegetation.cs     Vegetation, GrowBehavior (plants spread to neighbor cells).
     WolfRaid.cs       RaidingWolf, ReturnToForestBehavior, WolfRaidEffect.

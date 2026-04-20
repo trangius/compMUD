@@ -72,8 +72,9 @@ concept; don't smoosh.
 
 - Singleton instances of a category class. No position, no lifecycle. Many
   entities point at the same instance.
-- Examples: `Resources.Meat`, `Resources.Berry`; future `Materials.Steel`,
-  `DamageTypes.Fire`, `Rarities.Uncommon`.
+- Examples: `Resources.Meat`, `Resources.Berry`, `Resources.Pelt`,
+  `Resources.Bone`; future `Materials.Steel`, `DamageTypes.Fire`,
+  `Rarities.Uncommon`.
 - **Pattern**:
   ```csharp
   public class ResourceCategory { public readonly string name; ... }
@@ -81,6 +82,8 @@ concept; don't smoosh.
   {
       public static readonly ResourceCategory Meat = new("meat");
       public static readonly ResourceCategory Berry = new("berry");
+      public static readonly ResourceCategory Pelt = new("pelt");
+      public static readonly ResourceCategory Bone = new("bone");
   }
   ```
 - Identity is the object reference (`==` compares pointers). The `name` string
@@ -104,9 +107,10 @@ When adding a concept:
 
 A poisoned rabbit corpse is:
 - An **Entity** (the body, a new int id).
-- With **States**: `Corpse` (marker), `Walkable`, `ResourceItem { ... meat ... }`.
+- With **States**: `Corpse` (marker), `Walkable`, `Yields { [meat, pelt, bones] }`.
 - With an **Effect**: `Poisoned` that ticks down the entity's HP.
-- Referencing a **Category**: `ResourceItem.resourceType = Resources.Meat`.
+- Referencing a **Category**: each `Yield.category` points at `Resources.Meat`,
+  `Resources.Pelt`, or `Resources.Bone`.
 - No **Behavior** — it's not choosing anything.
 
 One concept, five slots, placed unambiguously.

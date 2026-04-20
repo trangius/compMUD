@@ -14,11 +14,13 @@ All in `Engine/Spatial/Spatial.cs` (`MovementHelper`):
   step first when both axes want progress (that IS the shortest path on a
   uniform-cost 8-grid). If diagonal is blocked, falls through to the bigger
   single-axis move, then the other single-axis. No randomness; deterministic.
-- **`MoveAwayFrom(id, pos, threatX, threatY)`** — pick the passable neighbor
-  that maximizes squared-Euclidean distance from the threat. Tries all 8,
-  picks best. Cardinal, diagonal — whatever gets farthest. Fixes the old
-  "run to wall, stop" bug: if east is blocked, picks a diagonal or the
-  other axis.
+- **`MoveAwayFrom(id, pos, threatX, threatY, rng)`** — pick the passable
+  neighbor that maximizes squared-Euclidean distance from the threat. Tries
+  all 8, picks best; ties break randomly via the supplied rng. Without the
+  random tiebreak, many creatures fleeing one threat all picked the same
+  first-in-array direction and lined up in parallel. Cardinal, diagonal —
+  whatever gets farthest. Fixes the old "run to wall, stop" bug: if east
+  is blocked, picks a diagonal or the other axis.
 - **`Wander(id, rng)`** — random step. Picks one of 8 neighbors uniformly; if
   blocked, stays put. Caller supplies rng for determinism.
 
@@ -27,7 +29,7 @@ All in `Engine/Spatial/Spatial.cs` (`MovementHelper`):
 `Engine/Spatial/Algorithms.cs` holds the generic flood-fill:
 
 ```csharp
-BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable);
+BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable, rng);
 // bfs.Reachable(x, y)      — did the flood reach (x, y)?
 // bfs.Distance(x, y)       — how many 8-connected steps to get there?
 // bfs.FirstStep(gx, gy)    — (dx, dy) of the first move along the shortest path
@@ -36,6 +38,12 @@ BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable);
 `isPassable` is supplied by the caller — that's the extension point for
 swimmer / climber creatures later. Today everyone passes `World.CanCreatureBeHere`
 (has Walkable, no Solid).
+
+The optional `rng` shuffles neighbor-iteration order once per call. BFS still
+finds optimal paths, but which of several equal-length paths survives in
+`cameFrom` (and so which step `FirstStep` returns) varies. Without that,
+many callers flooding toward the same goal picked identical first steps
+and lined up. Omit `rng` and the flood is deterministic.
 
 **Diagonals cost 1**, same as cardinals. The returned `Distance` is Chebyshev
 distance. Slight "cheat" on long paths (a diagonal crossing should really be

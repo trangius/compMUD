@@ -46,8 +46,8 @@ public class Game1 : Game
         ["bush"]    = ("\U000f024a", new Color(100, 160, 50)),
         ["rabbit"]  = ("\U000f0907", new Color(220, 220, 220)),
         ["wolf"]    = ("\uedde", new Color(200, 60, 60)),
-        ["corpse"]  = ("\U000f068c", new Color(150, 150, 150)),
-        ["berries"] = ("\U000f1042", new Color(180, 50, 50)),
+        ["corpse"]  = ("\U000f068c", new Color(220, 120, 160)),
+        ["bones"]   = ("\U000f068c", new Color(200, 200, 200)),
     };
 
     private int ticksPerSecond = 1;

@@ -20,7 +20,13 @@ public static class Archetypes
         World.AttachComponent(e, new Stats { Strength = 10, Agility = 70, Perception = 15, Toughness = 15 });
         World.AttachComponent(e, new Health(10));
         World.AttachComponent(e, new Energy(3000));
-        World.AttachComponent(e, new Drops { name = "Rabbit corpse", resourceType = Resources.Meat, amount = 600, dropSpriteId = "corpse" });
+        // When killed, leaves meat (edible), pelt (durable — wolves also eat
+        // it, hunters will take it), and bones (durable, inedible to wolves).
+        World.AttachComponent(e, new Yields(
+            new Yield(Resources.Meat, 500),
+            new Yield(Resources.Pelt, 100),
+            new Yield(Resources.Bone, 50)
+        ));
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
         World.AttachComponent(e, new AgilityPaced());
@@ -28,7 +34,6 @@ public static class Archetypes
         World.AttachComponent(e, new Behaviors(
             new EscapeGrappleBehavior(rng),
             new RunFromPredatorBehavior(rng),
-            new HarvestBehavior(),
             new FeedBehavior(rng),
             new BreedBehavior(rng),
             new RestBehavior(),
@@ -56,12 +61,20 @@ public static class Archetypes
         World.AttachComponent(e, new Health(30));
         World.AttachComponent(e, new Melee());
         World.AttachComponent(e, new Energy(1000));
-        World.AttachComponent(e, new Drops { name = "Wolf corpse", resourceType = Resources.Meat, amount = 400, dropSpriteId = "corpse" });
-        World.AttachComponent(e, new Diet(Resources.Meat) { hungerThreshold = 0.9 });
+        // When killed, same three yields as a rabbit but tuned larger/smaller
+        // in different ways — more meat (a whole wolf), pelt, and bones.
+        World.AttachComponent(e, new Yields(
+            new Yield(Resources.Meat, 350),
+            new Yield(Resources.Pelt, 120),
+            new Yield(Resources.Bone, 80)
+        ));
+        // Wolves eat meat AND pelt off a kill — in reality they'd trash the
+        // pelt, but here it keeps the bones-leftover mechanic simple and lets
+        // the ecology fall out of diet declarations.
+        World.AttachComponent(e, new Diet(Resources.Meat, Resources.Pelt) { hungerThreshold = 0.9 });
         World.AttachComponent(e, new Behaviors(
             new ReturnToForestBehavior(),
             new HuntBehavior(),
-            new HarvestBehavior(),
             new FeedBehavior(rng),
             new WanderBehavior(rng)
         ));
@@ -95,7 +108,9 @@ public static class Archetypes
         World.AttachComponent(e, new Species { spawn = CreateBush });
         World.AttachComponent(e, new FixedPaced { period = 30 });
         World.AttachComponent(e, new Vegetation { spreadChance = 0.03, spawnChance = 0.0005, clusterCap = 2, clusterRadius = 2 });
-        World.AttachComponent(e, new Drops { name = "Berries", resourceType = Resources.Berry, amount = 1500, dropSpriteId = "berries" });
+        // A grazed bush — rabbits drain the berry yield directly, no item
+        // pops out. When empty, FeedBehavior destroys the bush.
+        World.AttachComponent(e, new Yields(new Yield(Resources.Berry, 1500)));
         World.AttachComponent(e, new Behaviors(new GrowBehavior(rng)));
         return e;
     }

@@ -1,62 +1,10 @@
 namespace Engine;
 
-// ----------------------------------------------------------------------------
-// Category: a kind of resource (meat, plant, plastic, ...). Real object, not a
-// type tag — each built-in kind is a singleton in the Resources registry below.
-// Identity is the object reference (pointer equality); the name is for display only.
-// Plugins extend by declaring their own static readonly ResourceCategory somewhere
-// and using it at call sites — no engine change needed.
-// ----------------------------------------------------------------------------
-public class ResourceCategory
-{
-    public readonly string name;  // singleton label; readonly so Resources.Meat.name can never drift
-
-    public ResourceCategory(string name)
-    {
-        this.name = name;
-    }
-}
-
-// Built-in resource kinds. Each static readonly field is a singleton instance.
-public static class Resources
-{
-    public static readonly ResourceCategory Meat = new("meat");
-    public static readonly ResourceCategory Berry = new("berry");
-}
-
-// State: what this entity yields when destroyed (killed, harvested, grazed).
-public class Drops
-{
-    public required string name;
-    public required ResourceCategory resourceType;  // must match an eater's Diet
-    public required int amount;                  // no silent zero-energy drops
-    public required string dropSpriteId;
-    private int dropLayer = 3;
-
-    // ----------------------------------------------------------------------------
-    // Create a resource item in the world from these drop values.
-    // ----------------------------------------------------------------------------
-    public int SpawnItem(int x, int y)
-    {
-        int item = World.CreateEntity();
-        World.AttachComponent(item, new Position(x, y));
-        World.AttachComponent(item, new Appearance { spriteId = dropSpriteId, layer = dropLayer });
-        World.AttachComponent(item, new Named { name = name });
-        World.AttachComponent(item, new ResourceItem { resourceType = resourceType, amount = amount });
-        World.AttachComponent(item, new Walkable());
-        return item;
-    }
-}
-
-// State: a resource sitting in the world. Can be consumed or picked up.
-public class ResourceItem
-{
-    public required ResourceCategory resourceType;
-    public required int amount;
-}
+// Yield, Yields, ResourceCategory, Resources — cross-cutting primitives
+// (a tree yields wood, a corpse yields meat) — live in Engine/Yields.cs.
 
 // State: what resource kinds a creature will eat, and at what hunger level it
-// starts seeking food. Checked by FeedBehavior and HarvestBehavior.
+// starts seeking food. Checked by FeedBehavior.
 // hungerThreshold = 0.9 → opportunistic (eats whenever below 90% Max Energy);
 // hungerThreshold = 0.3 → stubborn browser (only eats when near starving).
 // Plugins can pass their own ResourceCategory instances — extensible without engine changes.
@@ -80,7 +28,7 @@ public class Diet
 
     // ----------------------------------------------------------------------------
     // Is the given Energy below this creature's hunger threshold? Used by
-    // HarvestBehavior and FeedBehavior to decide whether to seek food this tick.
+    // FeedBehavior to decide whether to seek food this tick.
     // ----------------------------------------------------------------------------
     public bool IsHungry(Energy energy)
     {
@@ -88,61 +36,10 @@ public class Diet
     }
 }
 
-// Behavior: when hungry and standing on something harvestable we can eat,
-// destroy it and drop the resource.
-public class HarvestBehavior : IBehavior
-{
-    public int Priority => 40;
-
-    // Cached between WouldAct and Act — which harvestable to destroy.
-    private int cachedHarvestableId = -1;
-
-    // ----------------------------------------------------------------------------
-    // Hungry AND standing on a harvestable (Drops, no Health) we'd eat? Cache it.
-    // ----------------------------------------------------------------------------
-    public bool WouldAct(int id)
-    {
-        if (!World.HasComponent<Energy>(id) || !World.HasComponent<Position>(id) || !World.HasComponent<Diet>(id)) return false;
-
-        Diet diet = World.GetComponent<Diet>(id);
-        Energy energy = World.GetComponent<Energy>(id);
-        if (!diet.IsHungry(energy)) return false;
-
-        Position pos = World.GetComponent<Position>(id);
-
-        // Harvestable = has Drops but no Health (a bush, not a live creature) AND we eat its kind
-        foreach (int other in World.EntitiesAt(pos.X, pos.Y))
-        {
-            if (other == id) continue;
-            if (!World.HasComponent<Drops>(other)) continue;
-            if (World.HasComponent<Health>(other)) continue;
-            if (!diet.Accepts(World.GetComponent<Drops>(other).resourceType)) continue;
-
-            cachedHarvestableId = other;
-            return true;
-        }
-
-        return false;
-    }
-
-    // ----------------------------------------------------------------------------
-    // Spawn the cached harvestable's drop at our feet, then destroy it.
-    // Cost 1 — grabbing a berry at your feet is a quick action.
-    // ----------------------------------------------------------------------------
-    public int Act(int id)
-    {
-        Position pos = World.GetComponent<Position>(id);
-        Drops drops = World.GetComponent<Drops>(cachedHarvestableId);
-        drops.SpawnItem(pos.X, pos.Y);
-        World.Log($"{World.Label(id)} harvests {World.Label(cachedHarvestableId)}");
-        World.DestroyEntity(cachedHarvestableId);
-        return 1;
-    }
-}
-
-// Behavior: when hungry, eat a ResourceItem underfoot, or walk (via BFS) toward
-// the nearest edible food we can actually reach. Ties break on cluster density;
-// further ties break randomly.
+// Behavior: when hungry, drain every edible yield from a Yields source on this
+// eater's own tile, or walk (via BFS) toward the nearest reachable Yields source
+// that has something we accept. Ties break on cluster density; further ties
+// break randomly.
 public class FeedBehavior : IBehavior
 {
     public int Priority => 30;
@@ -161,9 +58,9 @@ public class FeedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Hungry AND (edible food underfoot OR a reachable edible we can BFS to)?
-    // Underfoot wins instantly. Otherwise flood cells by walking distance, then
-    // among reachable edibles prefer the nearest, prefer the densest cluster,
+    // Hungry AND (an edible Yields source underfoot OR a reachable one we can
+    // BFS to)? Underfoot wins instantly. Otherwise flood cells by walking distance,
+    // then among reachable edibles prefer the nearest, prefer the densest cluster,
     // and pick randomly from whatever survives both tiebreaks.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
@@ -176,12 +73,11 @@ public class FeedBehavior : IBehavior
 
         Position pos = World.GetComponent<Position>(id);
 
-        // First: any edible ResourceItem underfoot we can eat right now?
+        // First: any edible Yields source underfoot we can eat right now?
         foreach (int other in World.EntitiesAt(pos.X, pos.Y))
         {
             if (other == id) continue;
-            if (!World.HasComponent<ResourceItem>(other)) continue;
-            if (!diet.Accepts(World.GetComponent<ResourceItem>(other).resourceType)) continue;
+            if (!IsEdible(other, diet)) continue;
 
             cachedFoodId = other;
             cachedFoodIsUnderfoot = true;
@@ -241,19 +137,50 @@ public class FeedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Eat the cached food if it's underfoot (cost 5 — chewing takes real time);
-    // otherwise step along the cached path (cost 1 — baseline movement).
+    // Drain every edible yield from the underfoot source in one action (cost 5 —
+    // eating takes real time). If the source has no yields left afterward, destroy
+    // it. If it still has durable yields (pelt, bones), leave it but flip a corpse's
+    // sprite to bones so the visual matches what's left. Walking case: step along
+    // the cached BFS path (cost 1).
     // ----------------------------------------------------------------------------
     public int Act(int id)
     {
         if (cachedFoodIsUnderfoot)
         {
-            // Consume the item, restore energy, remove it
+            Diet diet = World.GetComponent<Diet>(id);
             Energy energy = World.GetComponent<Energy>(id);
-            ResourceItem item = World.GetComponent<ResourceItem>(cachedFoodId);
-            energy.Restore(item.amount);
+            Yields yields = World.GetComponent<Yields>(cachedFoodId);
+
+            // Snapshot the edible categories — we can't iterate yields.entries while
+            // Drain mutates it, so collect the targets first.
+            List<ResourceCategory> targets = new List<ResourceCategory>();
+            foreach (Yield y in yields.entries)
+                if (diet.Accepts(y.category)) targets.Add(y.category);
+
+            int total = 0;
+            foreach (ResourceCategory cat in targets)
+                total += yields.Drain(cat, int.MaxValue);
+            energy.Restore(total);
+
             World.Log($"{World.Label(id)} eats {World.Label(cachedFoodId)}");
-            World.DestroyEntity(cachedFoodId);
+
+            // Post-drain: source vanishes if empty, or turns to bones if it was a
+            // corpse and its meat is gone. Bushes simply empty out and despawn.
+            if (yields.entries.Count == 0)
+            {
+                World.DestroyEntity(cachedFoodId);
+            }
+            else if (World.HasComponent<Corpse>(cachedFoodId) && yields.Get(Resources.Meat) == null)
+            {
+                // Stripped corpse — picked-clean look. Rename so labels match.
+                if (World.HasComponent<Appearance>(cachedFoodId))
+                    World.GetComponent<Appearance>(cachedFoodId).spriteId = "bones";
+                if (World.HasComponent<Named>(cachedFoodId))
+                {
+                    Named n = World.GetComponent<Named>(cachedFoodId);
+                    n.name = n.name.Replace("corpse", "bones");
+                }
+            }
             return 5;
         }
 
@@ -262,20 +189,24 @@ public class FeedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // A loose ResourceItem we'll eat, or a harvestable (Drops without Health) we'll eat?
+    // A Yields source with at least one yield this eater accepts. Works for any
+    // source — a grazable bush, a corpse on the ground, a tree (later).
     // ----------------------------------------------------------------------------
     private static bool IsEdible(int id, Diet diet)
     {
-        if (World.HasComponent<ResourceItem>(id))
-            return diet.Accepts(World.GetComponent<ResourceItem>(id).resourceType);
-        if (World.HasComponent<Drops>(id) && !World.HasComponent<Health>(id))
-            return diet.Accepts(World.GetComponent<Drops>(id).resourceType);
+        if (!World.HasComponent<Yields>(id)) return false;
+        // Live creatures have Yields too (they'll drop a corpse when killed), but
+        // they're not food until dead — Hunt handles that. Gate on Health.
+        if (World.HasComponent<Health>(id)) return false;
+        // Any yield on this source the eater's diet accepts?
+        foreach (Yield y in World.GetComponent<Yields>(id).entries)
+            if (diet.Accepts(y.category)) return true;
         return false;
     }
 
     // ----------------------------------------------------------------------------
     // Count of the target's 8 neighbor cells that contain at least one edible.
-    // One increment per cell — a stacked pair of items doesn't inflate the score.
+    // One increment per cell — a stacked pair of sources doesn't inflate the score.
     // ----------------------------------------------------------------------------
     private static int CountFoodNeighbors(int targetId, Diet diet)
     {
