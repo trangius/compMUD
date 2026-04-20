@@ -5,6 +5,11 @@ namespace Engine;
 // ----------------------------------------------------------------------------
 public static class Archetypes
 {
+    // Shared ecology rng — creature AI noise (wander, flee, feed, breed,
+    // grapple escape). Behaviors that take a Random get this one. Per-feature
+    // streams whose cadence shouldn't drift as unrelated systems get added
+    // (wolf raids, future weather, future quests) own their own Random in
+    // their feature file — see WolfRaid.cs for the pattern.
     private static Random rng = new Random(42);
 
     // ----------------------------------------------------------------------------
@@ -91,7 +96,7 @@ public static class Archetypes
     {
         int e = World.CreateEntity();
         World.AttachComponent(e, new Named { name = "Wolf raid spawner" });
-        World.AttachComponent(e, new Effects(new WolfRaidEffect(rng)));
+        World.AttachComponent(e, new Effects(new WolfRaidEffect()));
         return e;
     }
 

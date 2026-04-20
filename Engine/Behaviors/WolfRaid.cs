@@ -98,12 +98,10 @@ public class WolfRaidEffect : IEffect
 {
     private double raidChance = 0.001;  // probability per tick — roughly 1 raid per 1000 ticks
 
-    private Random rng;
-
-    public WolfRaidEffect(Random rng)
-    {
-        this.rng = rng;
-    }
+    // Dedicated stream. Wolf raid cadence shouldn't drift when unrelated
+    // systems (weather, quests, a busier ecology) add their own randomness.
+    // The seed lives with the feature, not in a central registry.
+    private Random rng = new Random(4242);
 
     // ----------------------------------------------------------------------------
     // Roll the raid chance. On success, pick a random tree cell that's open and
