@@ -105,13 +105,15 @@ public static class MovementHelper
     // all 8 neighbors, rejects any that aren't passable, picks the one with
     // largest squared-Euclidean distance from the threat. Fixes the "run to wall,
     // stop" bug — if east is blocked, the fleer picks a diagonal or the other axis.
+    //
+    // Ties in the distance score are broken randomly. Without that, many rabbits
+    // fleeing one wolf all picked whichever tied direction came first in the
+    // directions array and lined up in parallel.
     // ----------------------------------------------------------------------------
-    public static void MoveAwayFrom(int id, Position pos, int threatX, int threatY)
+    public static void MoveAwayFrom(int id, Position pos, int threatX, int threatY, Random rng)
     {
+        // First pass: find the best score achievable by any passable neighbor.
         int bestScore = int.MinValue;
-        (int dx, int dy) bestStep = (0, 0);
-        bool found = false;
-
         foreach ((int dx, int dy) offset in directions)
         {
             int nx = pos.X + offset.dx;
@@ -121,15 +123,26 @@ public static class MovementHelper
             int ddx = nx - threatX;
             int ddy = ny - threatY;
             int score = ddx * ddx + ddy * ddy;
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestStep = offset;
-                found = true;
-            }
+            if (score > bestScore) bestScore = score;
         }
 
-        if (found) TryMove(id, bestStep.dx, bestStep.dy);
+        if (bestScore == int.MinValue) return;
+
+        // Second pass: collect every step tied for the best score, then pick one.
+        List<(int dx, int dy)> tied = new List<(int, int)>();
+        foreach ((int dx, int dy) offset in directions)
+        {
+            int nx = pos.X + offset.dx;
+            int ny = pos.Y + offset.dy;
+            if (!World.CanCreatureBeHere(nx, ny)) continue;
+
+            int ddx = nx - threatX;
+            int ddy = ny - threatY;
+            if (ddx * ddx + ddy * ddy == bestScore) tied.Add(offset);
+        }
+
+        (int dx, int dy) pick = tied[rng.Next(tied.Count)];
+        TryMove(id, pick.dx, pick.dy);
     }
 
     // ----------------------------------------------------------------------------

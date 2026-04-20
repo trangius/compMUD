@@ -91,7 +91,7 @@ public class EscapeGrappleBehavior : IBehavior, ICanActWhenGrappled
         if (World.EntityExists(attackerId) && World.HasComponent<Position>(attackerId))
         {
             Position attackerPos = World.GetComponent<Position>(attackerId);
-            MovementHelper.MoveAwayFrom(id, pos, attackerPos.X, attackerPos.Y);
+            MovementHelper.MoveAwayFrom(id, pos, attackerPos.X, attackerPos.Y, rng);
         }
 
         World.Log($"{World.Label(id)} breaks free");

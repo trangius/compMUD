@@ -10,8 +10,15 @@ public class RunFromPredatorBehavior : IBehavior
 {
     public int Priority => 100;
 
+    private Random rng;
+
     // Cached between WouldAct and Act — which threat to flee from.
     private int cachedThreatId = -1;
+
+    public RunFromPredatorBehavior(Random rng)
+    {
+        this.rng = rng;
+    }
 
     // ----------------------------------------------------------------------------
     // Look for the nearest predator whose hunt list contains this entity's species.
@@ -40,7 +47,7 @@ public class RunFromPredatorBehavior : IBehavior
     {
         Position pos = World.GetComponent<Position>(id);
         Position threatPos = World.GetComponent<Position>(cachedThreatId);
-        MovementHelper.MoveAwayFrom(id, pos, threatPos.X, threatPos.Y);
+        MovementHelper.MoveAwayFrom(id, pos, threatPos.X, threatPos.Y, rng);
         return 1;
     }
 }

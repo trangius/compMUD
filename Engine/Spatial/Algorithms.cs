@@ -19,10 +19,27 @@ public static class Algorithms
     // cells where isPassable returns true. The start cell itself is always marked
     // reachable at distance 0 — we don't test it, because the caller typically
     // stands on it and may not pass the predicate (e.g. a Solid creature).
+    //
+    // If rng is supplied, neighbor-iteration order is shuffled once per call.
+    // That breaks the cardinal-first bias in cameFrom when several equal-length
+    // paths reach the same cell — without it, many callers flooding toward the
+    // same goal all pick identical FirstStep directions and form straight lines.
     // ----------------------------------------------------------------------------
-    public static BFSResult BFS(int startX, int startY, int maxRange, Func<int, int, bool> isPassable)
+    public static BFSResult BFS(int startX, int startY, int maxRange, Func<int, int, bool> isPassable, Random? rng = null)
     {
         BFSResult result = new BFSResult(startX, startY);
+
+        // Local copy of the 8 directions; shuffled below if rng was provided.
+        (int dx, int dy)[] dirs = (( int dx, int dy)[])directions.Clone();
+        if (rng != null)
+        {
+            // Fisher-Yates — one pass, reorders this BFS call's neighbor scan.
+            for (int i = dirs.Length - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (dirs[i], dirs[j]) = (dirs[j], dirs[i]);
+            }
+        }
 
         // Seed: start cell sits at distance 0 with no parent.
         result.distance[(startX, startY)] = 0;
@@ -36,7 +53,7 @@ public static class Algorithms
             int nextDist = result.distance[(cell.x, cell.y)] + 1;
             if (nextDist > maxRange) continue;
 
-            foreach ((int dx, int dy) dir in directions)
+            foreach ((int dx, int dy) dir in dirs)
             {
                 int nx = cell.x + dir.dx;
                 int ny = cell.y + dir.dy;

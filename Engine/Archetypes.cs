@@ -27,7 +27,7 @@ public static class Archetypes
         World.AttachComponent(e, new Breeding { breedCooldown = 400, breedChance = 0.1, globalCap = 15 });
         World.AttachComponent(e, new Behaviors(
             new EscapeGrappleBehavior(rng),
-            new RunFromPredatorBehavior(),
+            new RunFromPredatorBehavior(rng),
             new HarvestBehavior(),
             new FeedBehavior(rng),
             new BreedBehavior(rng),
