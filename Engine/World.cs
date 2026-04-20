@@ -140,6 +140,15 @@ public static class World
     }
 
     // ----------------------------------------------------------------------------
+    // "Name id" label for log lines — lets you match a log entry to the same
+    // id shown on the map and in the debug sidebar. e.g. "Rabbit 42".
+    // ----------------------------------------------------------------------------
+    public static string Label(int id)
+    {
+        return $"{GetEntityName(id)} {id}";
+    }
+
+    // ----------------------------------------------------------------------------
     // Create a new entity. Returns its ID.
     // ----------------------------------------------------------------------------
     public static int CreateEntity()

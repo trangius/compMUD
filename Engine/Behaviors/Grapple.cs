@@ -81,7 +81,7 @@ public class EscapeGrappleBehavior : IBehavior, ICanActWhenGrappled
 
         if (rng.NextDouble() >= g.EscapeChance(id))
         {
-            World.Log($"{World.GetEntityName(id)} struggles but stays pinned");
+            World.Log($"{World.Label(id)} struggles but stays pinned");
             return 1;
         }
 
@@ -94,7 +94,7 @@ public class EscapeGrappleBehavior : IBehavior, ICanActWhenGrappled
             MovementHelper.MoveAwayFrom(id, pos, attackerPos.X, attackerPos.Y);
         }
 
-        World.Log($"{World.GetEntityName(id)} breaks free");
+        World.Log($"{World.Label(id)} breaks free");
         return 1;
     }
 }

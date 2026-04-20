@@ -328,6 +328,36 @@ public class Game1 : Game
     }
 
     // ------------------------------------------------------------------------
+    // ClassifyLogEntry — pair each log message with a color and a "notable"
+    // flag. Non-notable messages (eats Berries, harvests Bush, struggles but
+    // pinned) are kept in the engine's log but hidden from the debug panel so
+    // the feed is legible. Gotcha: order matters — "eats X corpse" must hit
+    // the corpse branch before the generic "eats" mundane branch.
+    //
+    // Lives in the GUI because rarity is a presentation concern, not an
+    // engine fact. If you want to promote a message, tag a new substring.
+    // ------------------------------------------------------------------------
+    private static (Color color, bool notable) ClassifyLogEntry(string msg)
+    {
+        // Rare, high-signal events
+        if (msg.Contains("dies"))        return (new Color(230,  90,  90), true);
+        if (msg.Contains("born"))        return (new Color(140, 220, 120), true);
+        if (msg.Contains("emerges"))     return (new Color(230, 140,  60), true);
+        if (msg.Contains("vanishes"))    return (new Color(180, 130,  80), true);
+        if (msg.Contains("attacks"))     return (new Color(230, 110, 110), true);
+        if (msg.Contains("breaks free")) return (new Color(230, 220, 100), true);
+        if (msg.Contains("struggles"))   return (new Color(210, 170,  80), true);
+        if (msg.Contains("corpse"))      return (new Color(210, 120, 150), true);
+
+        // Mundane — hidden from the sidebar, still in World.messageLog
+        if (msg.Contains("harvests"))    return (new Color(130, 160, 120), false);
+        if (msg.Contains("eats"))        return (new Color(130, 160, 200), false);
+
+        // Unknown messages default to notable so new event types aren't hidden
+        return (Color.Gray, true);
+    }
+
+    // ------------------------------------------------------------------------
     // DrawSidebar — dispatch to the active sidebar panel
     // ------------------------------------------------------------------------
     private void DrawSidebar()
@@ -497,16 +527,23 @@ public class Game1 : Game
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
 
-        // Message log fills whatever rows are left above the controls block
+        // Message log — walk the whole backlog but draw only NOTABLE entries
+        // (mundane eats/harvests/struggles get classified as not-notable by
+        // ClassifyLogEntry and skipped). Each surviving line is colored by
+        // event type so the feed is scannable at a glance.
         int firstLogLine = line;
         int availableLogRows = Math.Max(0, (legendStartY / lh) - line);
-        int logCount = Math.Min(World.messageLog.Count, availableLogRows);
-        for (int i = 0; i < logCount; i++)
+        int drawn = 0;
+        for (int i = 0; i < World.messageLog.Count && drawn < availableLogRows; i++)
         {
             string msg = World.messageLog[i];
+            (Color color, bool notable) = ClassifyLogEntry(msg);
+            if (!notable) continue;
+
             if (msg.Length > sidebarChars)
                 msg = msg.Substring(0, sidebarChars);
-            sidebarFont.DrawText(spriteBatch, msg, new Vector2(sidebarX, (firstLogLine + i) * lh), new Color(180, 180, 180));
+            sidebarFont.DrawText(spriteBatch, msg, new Vector2(sidebarX, (firstLogLine + drawn) * lh), color);
+            drawn++;
         }
 
         // Controls legend pinned at the bottom (pixel-aligned, not row-aligned)

@@ -33,7 +33,7 @@ public static class DeathHelper
         if (!World.HasComponent<Health>(id)) return false;
         if (!World.GetComponent<Health>(id).IsDead) return false;
 
-        string name = World.GetEntityName(id, "unknown");
+        string label = World.Label(id);
 
         // Drop resources where the entity died, and mark the drop as a Corpse
         // (distinguishes creature remains from bush berries for counters/queries)
@@ -44,7 +44,7 @@ public static class DeathHelper
             World.AttachComponent(corpseId, new Corpse());
         }
 
-        World.Log($"{name} dies");
+        World.Log($"{label} dies");
         World.DestroyEntity(id);
         return true;
     }

@@ -82,7 +82,7 @@ public class ReturnToForestBehavior : IBehavior
     {
         if (cachedOnTree)
         {
-            World.Log($"{World.GetEntityName(id)} vanishes into the forest");
+            World.Log($"{World.Label(id)} vanishes into the forest");
             World.DestroyEntity(id);
             return 1;
         }
@@ -124,8 +124,8 @@ public class WolfRaidEffect : IEffect
             Position treePos = World.GetComponent<Position>(treeId);
             if (!World.CanCreatureBeHere(treePos.X, treePos.Y)) continue;
 
-            Archetypes.CreateWolf(treePos.X, treePos.Y);
-            World.Log($"A wolf emerges from the forest at ({treePos.X},{treePos.Y})");
+            int wolfId = Archetypes.CreateWolf(treePos.X, treePos.Y);
+            World.Log($"{World.Label(wolfId)} emerges from the forest at ({treePos.X},{treePos.Y})");
             return;
         }
     }

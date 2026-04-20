@@ -158,7 +158,7 @@ public class HuntBehavior : IBehavior
             Health targetHealth = World.GetComponent<Health>(cachedPreyId);
             targetHealth.TakeDamage(damage);
 
-            World.Log($"{World.GetEntityName(id)} attacks {World.GetEntityName(cachedPreyId)} ({targetHealth.Current}/{targetHealth.Max} HP)");
+            World.Log($"{World.Label(id)} attacks {World.Label(cachedPreyId)} ({targetHealth.Current}/{targetHealth.Max} HP)");
             bool killed = DeathHelper.DestroyEntityIfDead(cachedPreyId);
 
             // Raider mission complete — flip the flag and ReturnToForest takes over next tick

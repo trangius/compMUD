@@ -134,7 +134,7 @@ public class HarvestBehavior : IBehavior
         Position pos = World.GetComponent<Position>(id);
         Drops drops = World.GetComponent<Drops>(cachedHarvestableId);
         drops.SpawnItem(pos.X, pos.Y);
-        World.Log($"{World.GetEntityName(id)} harvests {World.GetEntityName(cachedHarvestableId, drops.name)}");
+        World.Log($"{World.Label(id)} harvests {World.Label(cachedHarvestableId)}");
         World.DestroyEntity(cachedHarvestableId);
         return 1;
     }
@@ -252,7 +252,7 @@ public class FeedBehavior : IBehavior
             Energy energy = World.GetComponent<Energy>(id);
             ResourceItem item = World.GetComponent<ResourceItem>(cachedFoodId);
             energy.Restore(item.amount);
-            World.Log($"{World.GetEntityName(id)} eats {World.GetEntityName(cachedFoodId)}");
+            World.Log($"{World.Label(id)} eats {World.Label(cachedFoodId)}");
             World.DestroyEntity(cachedFoodId);
             return 5;
         }

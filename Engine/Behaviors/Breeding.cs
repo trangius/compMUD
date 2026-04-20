@@ -117,7 +117,7 @@ public class BreedBehavior : IBehavior
             int baby = species.spawn(pos.X, pos.Y);
             World.GetComponent<Breeding>(baby).lastBreedTick = World.tickCount;  // born on cooldown
 
-            World.Log($"{World.GetEntityName(id)} born at ({pos.X},{pos.Y})");
+            World.Log($"{World.Label(baby)} born to {World.Label(id)} at ({pos.X},{pos.Y})");
             return 8;
         }
 
