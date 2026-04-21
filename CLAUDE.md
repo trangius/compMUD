@@ -25,6 +25,28 @@ class Player { public IMovement movement; public IAttack attack; }
 class Player : Character : Entity : GameObject ...
 ```
 
+## Algorithmic alternatives: surface them at decision time
+Any time the work touches something algorithmically non-trivial — graph
+search, pathfinding, nearest-neighbor queries, range scans, sorting,
+matching, anything whose cost shape isn't obvious at a glance — surface the
+reasonable algorithmic alternatives *before* committing to an
+implementation. Not just during optimization, at decision time. Name the
+alternatives, name the tradeoffs, let the user pick.
+
+"N creatures each do a BFS" should, at first mention, come paired with
+"one multi-source BFS serves all creatures." Sorting in a hot loop should
+come paired with partial-sort / heap-select. Nearest-neighbor lookup
+should come paired with spatial hashing. "Check every pair" should come
+paired with the obvious "there's an n-vs-n algorithm for this." The point
+is not to pick the fanciest option — often the simple one is right. The
+point is that the choice is explicit, not defaulted to.
+
+The failure mode to avoid: writing the first algorithm that comes to mind
+and only reaching for alternatives when performance complaints arrive.
+Flow fields came up in this codebase only after the user asked "isn't
+there an algorithm that compares all with all?" — that framing should have
+been on the table at the first design conversation, not the fifth.
+
 ## The five buckets
 Every new concept fits exactly one of: **Entity**, **State**, **Behavior**,
 **Effect**, **Category**. Don't smoosh. Decision tree and patterns in
@@ -44,10 +66,13 @@ You can pipe input for scripted runs.
   may have logic; `obj.breedCooldown` (camelCase) = plain data field.
 - **PascalCase for properties, types, methods, interfaces.** Standard.
 - Prefer explicit types over `var` unless the type is obvious from context.
+- Match the existing style in a file even if you'd do it differently.
 
 ## General principles
 - Characters use circle collision; walls and tiles use rectangle collision.
 - Do not refactor large systems unless explicitly asked.
+- If you notice unrelated dead code, mention it — don't delete it.
+- If you wrote 200 lines and it could be 50, rewrite it.
 
 ## Comments
 - Comments are navigation — you should understand a file by reading only the
