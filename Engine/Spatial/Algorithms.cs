@@ -149,6 +149,97 @@ public class FlowField
 }
 
 // ----------------------------------------------------------------------------
+// Result of picking a step via a flow field: where to go, how far the target
+// is, and the neighbor cell we'd step into. bestDist == 0 means the chosen
+// neighbor IS a seed cell — useful to the caller that wants to act on the
+// thing at that seed (bite the prey there, harvest the resource there).
+// ----------------------------------------------------------------------------
+public struct FlowFieldStep
+{
+    public int bestDist;        // distance from the chosen neighbor to the nearest seed
+    public int stepDx, stepDy;  // unit direction from the mover to that neighbor
+    public int neighborX;
+    public int neighborY;
+}
+
+// ----------------------------------------------------------------------------
+// Shared "pick the best 8-neighbor step across several flow fields" helper.
+// Both Hunt and Feed want the same thing: my own cell is Solid so it's never
+// in the field, and I need the neighbor cell that's closest to any seed I
+// care about. Ties are broken randomly so herds spread out instead of
+// funnelling through one cell.
+// ----------------------------------------------------------------------------
+public static class FlowFieldHelper
+{
+    // 8-connected step offsets. Duplicates MovementHelper.directions by design
+    // — that array is private; copying the eight tuples here is cheaper than
+    // plumbing a shared constant.
+    private static readonly (int dx, int dy)[] neighborOffsets = {
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (1, -1), (1, 1), (-1, -1), (-1, 1)
+    };
+
+    // ----------------------------------------------------------------------------
+    // Walk the 8 neighbors of (fromX, fromY). For each, take the min distance
+    // across the given fields (the mover cares about whichever seed type is
+    // closest). Track ties, random pick among them. Returns false when no
+    // neighbor is reachable in any field, or when the effective walk distance
+    // (neighbor-dist + 1 for the step itself) exceeds maxRange.
+    // ----------------------------------------------------------------------------
+    public static bool PickNearestNeighborStep(
+        int fromX, int fromY, List<FlowField> fields, int maxRange, Random rng,
+        out FlowFieldStep step)
+    {
+        step = default;
+
+        int bestDist = int.MaxValue;
+        List<(int nx, int ny, int dx, int dy)> tied = new List<(int, int, int, int)>();
+        foreach ((int dx, int dy) offset in neighborOffsets)
+        {
+            int nx = fromX + offset.dx;
+            int ny = fromY + offset.dy;
+
+            // This neighbor's best over all fields — multiple seed types
+            // (e.g. Meat AND Pelt for a wolf; multiple prey species for a
+            // predator) so take whichever is closest.
+            int cellBest = int.MaxValue;
+            foreach (FlowField f in fields)
+            {
+                if (!f.Reachable(nx, ny)) continue;
+                int d = f.Distance(nx, ny);
+                if (d < cellBest) cellBest = d;
+            }
+            if (cellBest == int.MaxValue) continue;
+
+            if (cellBest < bestDist)
+            {
+                bestDist = cellBest;
+                tied.Clear();
+                tied.Add((nx, ny, offset.dx, offset.dy));
+            }
+            else if (cellBest == bestDist)
+            {
+                tied.Add((nx, ny, offset.dx, offset.dy));
+            }
+        }
+
+        if (tied.Count == 0) return false;
+        if (bestDist + 1 > maxRange) return false;
+
+        (int pickNx, int pickNy, int pickDx, int pickDy) = tied[rng.Next(tied.Count)];
+        step = new FlowFieldStep
+        {
+            bestDist = bestDist,
+            stepDx = pickDx,
+            stepDy = pickDy,
+            neighborX = pickNx,
+            neighborY = pickNy,
+        };
+        return true;
+    }
+}
+
+// ----------------------------------------------------------------------------
 // Output of a BFS flood. `distance` tells how many steps to each reached cell;
 // `cameFrom` names each cell's parent on the shortest path back to start.
 // Together they let FirstStep reconstruct the next move toward any goal cell.

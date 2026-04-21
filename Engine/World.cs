@@ -461,4 +461,35 @@ public static class World
         flowFieldCache[spawn] = fresh;
         return fresh;
     }
+
+    // ----------------------------------------------------------------------------
+    // Get this tick's flow field seeded from every cell holding an edible
+    // source of the given resource category — a Yields entity with an unspent
+    // entry of that category and no Health (live creatures aren't food, Hunt
+    // handles them). Rabbits reading Berry get bushes; wolves reading Meat
+    // get corpses. Partly-drained corpses still appear in fields for whichever
+    // categories they still carry, so a picked-clean corpse drops out of Meat
+    // but stays in Pelt.
+    // ----------------------------------------------------------------------------
+    public static FlowField GetYieldFlowField(ResourceCategory category)
+    {
+        if (flowFieldCache.TryGetValue(category, out FlowField? cached)) return cached;
+
+        // Walk every Yields entity; include those carrying the category and
+        // not alive. Same filter FeedBehavior.IsEdible applies, but now at
+        // seed time — the flood itself is what the consumer reads.
+        List<(int x, int y)> seeds = new List<(int, int)>();
+        foreach (int id in AllWithComponent<Yields>())
+        {
+            if (HasComponent<Health>(id)) continue;
+            if (!HasComponent<Position>(id)) continue;
+            if (GetComponent<Yields>(id).Get(category) == null) continue;
+            Position p = GetComponent<Position>(id);
+            seeds.Add((p.X, p.Y));
+        }
+
+        FlowField fresh = Algorithms.MultiSourceBFS(seeds, CanCreatureBeHere);
+        flowFieldCache[category] = fresh;
+        return fresh;
+    }
 }

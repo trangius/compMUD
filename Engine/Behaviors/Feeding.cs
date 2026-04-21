@@ -58,10 +58,13 @@ public class FeedBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Hungry AND (an edible Yields source underfoot OR a reachable one we can
-    // BFS to)? Underfoot wins instantly. Otherwise flood cells by walking distance,
-    // then among reachable edibles prefer the nearest, prefer the densest cluster,
-    // and pick randomly from whatever survives both tiebreaks.
+    // Hungry AND (an edible Yields source underfoot OR a reachable one the
+    // shared flow field can lead us to)? Underfoot wins instantly. Otherwise
+    // FlowFieldHelper picks the best-step neighbor across every diet-category
+    // flow field. The previous cluster-density tiebreak is gone — the flow
+    // field gives a direction, not a target entity, so there's nothing to
+    // compare density against. Random pick across equally-close directions
+    // spreads a herd out just as well in practice.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -84,55 +87,25 @@ public class FeedBehavior : IBehavior
             return true;
         }
 
-        // Otherwise: flood reachable cells out to vision range. CanCreatureBeHere
-        // is the same passability the mover uses — walls, water, and other Solids block.
+        // Union the flow fields for every diet category. A corpse carries
+        // multiple yields, so the same bush / corpse can appear in several
+        // fields — picking the min distance across fields is the right answer.
+        List<FlowField> fields = new List<FlowField>();
+        foreach (ResourceCategory cat in diet.allowed)
+            fields.Add(World.GetYieldFlowField(cat));
+
         int range = StatMath.VisionRange(id);
-        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere, rng);
 
-        // Collect every edible entity sitting in a reached cell, with its walking distance.
-        List<(int foodId, int dist)> reachable = new List<(int, int)>();
-        foreach (KeyValuePair<(int x, int y), int> entry in bfs.distance)
-        {
-            foreach (int other in World.EntitiesAt(entry.Key.x, entry.Key.y))
-            {
-                if (other == id) continue;
-                if (!IsEdible(other, diet)) continue;
-                reachable.Add((other, entry.Value));
-            }
-        }
+        if (!FlowFieldHelper.PickNearestNeighborStep(pos.X, pos.Y, fields, range, rng, out FlowFieldStep step))
+            return false;
 
-        if (reachable.Count == 0) return false;
-
-        // Keep only edibles tied for the shortest walking distance.
-        int bestDist = int.MaxValue;
-        foreach ((int foodId, int dist) in reachable)
-            if (dist < bestDist) bestDist = dist;
-        List<int> nearest = new List<int>();
-        foreach ((int foodId, int dist) in reachable)
-            if (dist == bestDist) nearest.Add(foodId);
-
-        // First tiebreak: most edible 8-neighbors (prefer food in a dense patch).
-        int bestNeighborCount = -1;
-        List<int> topCandidates = new List<int>();
-        foreach (int candidate in nearest)
-        {
-            int n = CountFoodNeighbors(candidate, diet);
-            if (n > bestNeighborCount)
-            {
-                bestNeighborCount = n;
-                topCandidates.Clear();
-            }
-            if (n == bestNeighborCount)
-                topCandidates.Add(candidate);
-        }
-
-        // Final tiebreak: random pick among survivors.
-        cachedFoodId = topCandidates[rng.Next(topCandidates.Count)];
+        // cachedFoodId isn't used on the walking path — we don't pre-pick a
+        // specific source. Next tick's Feed fires again from the new cell,
+        // re-reads the (possibly newly-computed) field, and either finds food
+        // underfoot (eat) or takes another step.
+        cachedStepDx = step.stepDx;
+        cachedStepDy = step.stepDy;
         cachedFoodIsUnderfoot = false;
-
-        // Cache the first step along the BFS path — Act just calls TryMove with it.
-        Position foodPos = World.GetComponent<Position>(cachedFoodId);
-        (cachedStepDx, cachedStepDy) = bfs.FirstStep(foodPos.X, foodPos.Y);
         return true;
     }
 
@@ -204,32 +177,4 @@ public class FeedBehavior : IBehavior
         return false;
     }
 
-    // ----------------------------------------------------------------------------
-    // Count of the target's 8 neighbor cells that contain at least one edible.
-    // One increment per cell — a stacked pair of sources doesn't inflate the score.
-    // ----------------------------------------------------------------------------
-    private static int CountFoodNeighbors(int targetId, Diet diet)
-    {
-        if (!World.HasComponent<Position>(targetId)) return 0;
-        Position p = World.GetComponent<Position>(targetId);
-
-        int count = 0;
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-                foreach (int other in World.EntitiesAt(p.X + dx, p.Y + dy))
-                {
-                    if (other == targetId) continue;
-                    if (IsEdible(other, diet))
-                    {
-                        count++;
-                        break;  // one per cell is enough
-                    }
-                }
-            }
-        }
-        return count;
-    }
 }

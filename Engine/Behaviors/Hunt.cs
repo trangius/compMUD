@@ -77,21 +77,11 @@ public class HuntBehavior : IBehavior
     private int cachedStepDx;
     private int cachedStepDy;
 
-    // 8-connected neighborhood — the wolf's own cell is Solid so the flow
-    // field never contains it; instead the wolf reads these 8 cells to find
-    // the one that's closest to prey.
-    private static readonly (int dx, int dy)[] neighborOffsets = {
-        (0, -1), (0, 1), (1, 0), (-1, 0),
-        (1, -1), (1, 1), (-1, -1), (-1, 1)
-    };
-
     // ----------------------------------------------------------------------------
     // Read the shared per-tick flow field for each prey species this hunter
-    // hunts. Walk the hunter's 8 neighbors, pick the one with smallest field
-    // distance across all prey species (random tiebreak). That neighbor is the
-    // next step. If its distance is 0, the neighbor IS a prey cell — bite the
-    // prey sitting there. If the step-effective distance (d + 1, one for the
-    // hunter's own step) exceeds vision, decline.
+    // hunts. FlowFieldHelper picks the best-step neighbor across them. If the
+    // chosen neighbor's distance is 0, the neighbor IS a prey cell — bite the
+    // prey sitting there. Otherwise cache the step and walk next tick.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -107,54 +97,17 @@ public class HuntBehavior : IBehavior
         foreach (Func<int, int, int> preySpawn in predator.preySpecies)
             fields.Add(World.GetSpeciesFlowField(preySpawn));
 
-        // Scan our 8 neighbors against every prey field; pick the smallest
-        // distance, collect ties for random pick.
-        int bestDist = int.MaxValue;
-        List<(int nx, int ny, int dx, int dy)> tied = new List<(int, int, int, int)>();
-        foreach ((int dx, int dy) offset in neighborOffsets)
+        if (!FlowFieldHelper.PickNearestNeighborStep(pos.X, pos.Y, fields, range, rng, out FlowFieldStep step))
+            return false;
+
+        // Distance 0 at the chosen neighbor means it's a prey cell (a seed of
+        // the flow field). Pull the prey id — must be a Species entity on our
+        // prey list AND have Health, matching the flow-field seeder's filter.
+        // If the prey evaporated between tick start and now, fall through to
+        // "walk there anyway" (rare).
+        if (step.bestDist == 0)
         {
-            int nx = pos.X + offset.dx;
-            int ny = pos.Y + offset.dy;
-
-            // Each prey field might give this cell a different distance; take
-            // the minimum since we want the nearest prey of ANY hunted species.
-            int cellBest = int.MaxValue;
-            foreach (FlowField f in fields)
-            {
-                if (!f.Reachable(nx, ny)) continue;
-                int d = f.Distance(nx, ny);
-                if (d < cellBest) cellBest = d;
-            }
-            if (cellBest == int.MaxValue) continue;  // no prey reachable via this neighbor
-
-            if (cellBest < bestDist)
-            {
-                bestDist = cellBest;
-                tied.Clear();
-                tied.Add((nx, ny, offset.dx, offset.dy));
-            }
-            else if (cellBest == bestDist)
-            {
-                tied.Add((nx, ny, offset.dx, offset.dy));
-            }
-        }
-
-        if (tied.Count == 0) return false;  // no reachable prey in any direction
-
-        // Hunter's effective distance is neighbor-dist + 1 (we still have to
-        // step to the neighbor). Out-of-vision prey — ignore.
-        if (bestDist + 1 > range) return false;
-
-        (int pickNx, int pickNy, int stepDx, int stepDy) = tied[rng.Next(tied.Count)];
-
-        // Distance 0 at a neighbor means the neighbor IS a prey cell (seed of
-        // the flow field). Pull the prey id from that cell — it must be a
-        // Species entity on our prey list AND have Health, same filter the
-        // flow-field seeder applied. If the prey evaporated between tick
-        // start and now, fall through to "walk there anyway" (rare).
-        if (bestDist == 0)
-        {
-            foreach (int other in World.EntitiesAt(pickNx, pickNy))
+            foreach (int other in World.EntitiesAt(step.neighborX, step.neighborY))
             {
                 if (other == id) continue;
                 if (!World.HasComponent<Species>(other)) continue;
@@ -167,8 +120,8 @@ public class HuntBehavior : IBehavior
         }
 
         cachedPreyAdjacent = false;
-        cachedStepDx = stepDx;
-        cachedStepDy = stepDy;
+        cachedStepDx = step.stepDx;
+        cachedStepDy = step.stepDy;
         return true;
     }
 
