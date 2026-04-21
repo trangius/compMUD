@@ -54,13 +54,16 @@ public class Game1 : Game
 
     private int ticksPerSecond = 1;
     private double tickTimer = 0;
+    private bool paused = false;
     private KeyboardState previousKeyState;
 
-    // Key-repeat timers for Up/Down (speed control). On first press we fire
-    // immediately; while the key is held we wait `keyRepeatDelay` and then
-    // fire every `keyRepeatInterval`. Mirrors a typical OS keyboard repeat.
+    // Key-repeat timers for the speed keys. On first press we fire
+    // immediately; while held we wait `keyRepeatDelay` and then fire every
+    // `keyRepeatInterval`. Mirrors a typical OS keyboard repeat.
     private double upRepeatTimer = 0;
     private double downRepeatTimer = 0;
+    private double rightRepeatTimer = 0;
+    private double leftRepeatTimer = 0;
     private const double keyRepeatDelay = 0.35;
     private const double keyRepeatInterval = 0.05;
 
@@ -166,7 +169,7 @@ public class Game1 : Game
         sidebarColWidth = (int)Math.Ceiling(sidebarChar.X);
         sidebarLineHeight = (int)Math.Ceiling(sidebarChar.Y);
 
-        Window.Title = $"Explorer — {ticksPerSecond} ticks/s";
+        UpdateTitle();
     }
 
     // ------------------------------------------------------------------------
@@ -178,10 +181,14 @@ public class Game1 : Game
 
         if (keyState.IsKeyDown(Keys.Escape)) Exit();
 
-        // Adjust simulation speed — Up/Down auto-repeat while held
+        // Adjust simulation speed — Up/Down = ±10, Left/Right = ±1. Fires
+        // on first press, then again on key-repeat while held. Works even
+        // while paused so you can pre-set the rate for the next unpause.
         double dt = gameTime.ElapsedGameTime.TotalSeconds;
-        HandleSpeedKey(keyState, previousKeyState, Keys.Up, dt, ref upRepeatTimer, +1);
-        HandleSpeedKey(keyState, previousKeyState, Keys.Down, dt, ref downRepeatTimer, -1);
+        HandleSpeedKey(keyState, previousKeyState, Keys.Up, dt, ref upRepeatTimer, +10);
+        HandleSpeedKey(keyState, previousKeyState, Keys.Down, dt, ref downRepeatTimer, -10);
+        HandleSpeedKey(keyState, previousKeyState, Keys.Right, dt, ref rightRepeatTimer, +1);
+        HandleSpeedKey(keyState, previousKeyState, Keys.Left, dt, ref leftRepeatTimer, -1);
 
         // Toggle sidebar mode with backtick
         if (keyState.IsKeyDown(Keys.OemTilde) && !previousKeyState.IsKeyDown(Keys.OemTilde))
@@ -189,22 +196,36 @@ public class Game1 : Game
             showDebugSidebar = !showDebugSidebar;
         }
 
+        // Space toggles pause — edge-triggered so holding doesn't flap.
+        if (keyState.IsKeyDown(Keys.Space) && !previousKeyState.IsKeyDown(Keys.Space))
+        {
+            paused = !paused;
+            UpdateTitle();
+            // Reset the accumulator so un-pausing doesn't dump a batch of
+            // catch-up ticks all at once.
+            if (paused) tickTimer = 0;
+        }
+
         previousKeyState = keyState;
 
-        // Accumulate time and run ticks at the configured rate
-        tickTimer += gameTime.ElapsedGameTime.TotalSeconds;
-        double tickInterval = 1.0 / ticksPerSecond;
-        while (tickTimer >= tickInterval)
+        // Accumulate time and run ticks at the configured rate. Skip entirely
+        // while paused — the world stands still.
+        if (!paused)
         {
-            World.Tick();
-            tickTimer -= tickInterval;
+            tickTimer += gameTime.ElapsedGameTime.TotalSeconds;
+            double tickInterval = 1.0 / ticksPerSecond;
+            while (tickTimer >= tickInterval)
+            {
+                World.Tick();
+                tickTimer -= tickInterval;
+            }
         }
 
         base.Update(gameTime);
     }
 
     // ------------------------------------------------------------------------
-    // HandleSpeedKey — fire the speed change on the initial keypress, then on
+    // HandleSpeedKey — fire the speed change on the initial press, then on
     // every keyRepeatInterval after keyRepeatDelay has elapsed. The timer IS
     // the state: on edge we seed it to the initial delay; while held we count
     // down and re-seed to the repeat interval after each fire.
@@ -235,12 +256,22 @@ public class Game1 : Game
     }
 
     // ------------------------------------------------------------------------
-    // ChangeTicksPerSecond — bump the tick rate by delta, clamp, update title.
+    // ChangeTicksPerSecond — bump the rate by delta. Clamped to [1, 500];
+    // above 500 the frame can't keep up with the sim even on a quiet map.
     // ------------------------------------------------------------------------
+    private const int maxTicksPerSecond = 500;
+
     private void ChangeTicksPerSecond(int delta)
     {
-        ticksPerSecond = Math.Clamp(ticksPerSecond + delta, 1, 100);
-        Window.Title = $"Explorer — {ticksPerSecond} ticks/s";
+        ticksPerSecond = Math.Clamp(ticksPerSecond + delta, 1, maxTicksPerSecond);
+        UpdateTitle();
+    }
+
+    private void UpdateTitle()
+    {
+        Window.Title = paused
+            ? $"Explorer — PAUSED ({ticksPerSecond} ticks/s)"
+            : $"Explorer — {ticksPerSecond} ticks/s";
     }
 
     // ------------------------------------------------------------------------
@@ -389,11 +420,13 @@ public class Game1 : Game
         // Controls legend pinned to the bottom of the actual screen — the map
         // often doesn't fill the full screen height (fit loop is width-limited),
         // so anchoring off mapHeight*cellHeight leaves a black strip below.
-        int legendStart = screenHeight - 5 * sidebarLineHeight;
+        int legendStart = screenHeight - 7 * sidebarLineHeight;
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStart), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, legendStart + 1 * sidebarLineHeight), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStart + 2 * sidebarLineHeight), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "`   Debug panel", new Vector2(sidebarX, legendStart + 3 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed ±10", new Vector2(sidebarX, legendStart + 1 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2190\u2192  Speed ±1", new Vector2(sidebarX, legendStart + 2 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "SPC Pause", new Vector2(sidebarX, legendStart + 3 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStart + 4 * sidebarLineHeight), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "`   Debug panel", new Vector2(sidebarX, legendStart + 5 * sidebarLineHeight), Color.Gray);
     }
 
     // ------------------------------------------------------------------------
@@ -427,7 +460,9 @@ public class Game1 : Game
         line++;
         sidebarFont.DrawText(spriteBatch, $"Turn: {World.tickCount}", new Vector2(sidebarX, line * lh), new Color(200, 200, 150));
         line++;
-        sidebarFont.DrawText(spriteBatch, $"Speed: {ticksPerSecond} ticks/s", new Vector2(sidebarX, line * lh), new Color(150, 150, 150));
+        string speedLine = paused ? $"PAUSED ({ticksPerSecond} ticks/s)" : $"Speed: {ticksPerSecond} ticks/s";
+        Color speedColor = paused ? new Color(230, 160, 90) : new Color(150, 150, 150);
+        sidebarFont.DrawText(spriteBatch, speedLine, new Vector2(sidebarX, line * lh), speedColor);
         line++;
 
         int rabbits = 0, wolves = 0, hunters = 0;
@@ -467,7 +502,7 @@ public class Game1 : Game
         // Sidebar extends the full screen height, not just mapHeight*cellHeight —
         // the font-fit loop usually caps on width, leaving vertical space below
         // the map. We use that space for the log/controls too.
-        int controlsBlockHeight = 5 * lh;
+        int controlsBlockHeight = 7 * lh;
         int legendStartY = screenHeight - controlsBlockHeight;
         int maxCreatureY = legendStartY - 6 * lh;   // leave a few rows for the log
 
@@ -575,8 +610,10 @@ public class Game1 : Game
 
         // Controls legend pinned at the bottom (pixel-aligned, not row-aligned)
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, legendStartY), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed", new Vector2(sidebarX, legendStartY + 1 * lh), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStartY + 2 * lh), Color.Gray);
-        sidebarFont.DrawText(spriteBatch, "`   Game panel", new Vector2(sidebarX, legendStartY + 3 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2191\u2193  Speed ±10", new Vector2(sidebarX, legendStartY + 1 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "\u2190\u2192  Speed ±1", new Vector2(sidebarX, legendStartY + 2 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "SPC Pause", new Vector2(sidebarX, legendStartY + 3 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "ESC Quit", new Vector2(sidebarX, legendStartY + 4 * lh), Color.Gray);
+        sidebarFont.DrawText(spriteBatch, "`   Game panel", new Vector2(sidebarX, legendStartY + 5 * lh), Color.Gray);
     }
 }
