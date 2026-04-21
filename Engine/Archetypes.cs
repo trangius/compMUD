@@ -35,7 +35,9 @@ public static class Archetypes
         World.AttachComponent(e, new Diet(Resources.Berry));
         World.AttachComponent(e, new Species { spawn = CreateRabbit });
         World.AttachComponent(e, new AgilityPaced());
-        World.AttachComponent(e, new Breeding { breedCooldown = 400, breedChance = 0.1, globalCap = 15 });
+        // Tuned for combined wolf-raid + hunter predation. Below these rates
+        // the rabbits crashed to zero under pressure from both directions.
+        World.AttachComponent(e, new Breeding { breedCooldown = 250, breedChance = 0.15, globalCap = 30 });
         World.AttachComponent(e, new Behaviors(
             new EscapeGrappleBehavior(rng),
             new RunFromPredatorBehavior(rng),
@@ -141,15 +143,29 @@ public static class Archetypes
         // Hunter eats meat but hauls pelts home as cargo.
         World.AttachComponent(e, new Diet(Resources.Meat));
         World.AttachComponent(e, new Collects(Resources.Meat, Resources.Pelt));
-        World.AttachComponent(e, new Container(capacity: 1500));  // backpack
+        // Backpack — sized to comfortably hold three rabbits' meat + pelt
+        // per trip. Drop below that and the hunter leaves cargo on the last
+        // kill of every outing.
+        World.AttachComponent(e, new Container(capacity: 2000));
         World.AttachComponent(e, new Home(campId));
         // Placeholder yields for if a hunter is killed.
         World.AttachComponent(e, new Yields(
             new Yield(Resources.Meat, 400),
             new Yield(Resources.Bone, 60)
         ));
-        // Empty Behaviors list — hunter sits still. Behaviors land next commit.
-        World.AttachComponent(e, new Behaviors());
+        // The hunter's loop: eat, deposit, butcher, hunt, walk home. Priorities
+        // in descending order so the most immediate needs beat the rest.
+        // Escape-grapple at 100 still preempts everything — a pinned hunter
+        // struggles free first.
+        World.AttachComponent(e, new Behaviors(
+            new EscapeGrappleBehavior(rng),
+            new FeedFromCampBehavior(),
+            new FeedFromBackpackBehavior(),
+            new ButcherCorpseBehavior(rng),
+            new DepositAtCampBehavior(),
+            new HuntForStockpileBehavior(rng),
+            new ReturnToCampBehavior(rng)
+        ));
         World.AttachComponent(e, new Effects(new EnergyDrainEffect()));
         return e;
     }

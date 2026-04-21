@@ -1,20 +1,20 @@
 using System.Diagnostics;
 using Engine;
-
+Console.WriteLine("test123");
 // Sprite registry — maps spriteId to console glyph and color
 Dictionary<string, (string glyph, ConsoleColor color)> sprites = new()
 {
-    ["grass"]   = (".", ConsoleColor.Green),
-    ["wall"]    = ("#", ConsoleColor.Gray),
-    ["water"]   = ("~", ConsoleColor.Blue),
-    ["tree"]    = ("T", ConsoleColor.DarkGreen),
-    ["bush"]    = ("*", ConsoleColor.DarkYellow),
-    ["rabbit"]  = ("r", ConsoleColor.White),
-    ["wolf"]    = ("W", ConsoleColor.Red),
-    ["hunter"]  = ("H", ConsoleColor.Yellow),
-    ["camp"]    = ("A", ConsoleColor.DarkYellow),
-    ["corpse"]  = ("%", ConsoleColor.Magenta),
-    ["bones"]   = ("%", ConsoleColor.Gray),
+    ["grass"] = (".", ConsoleColor.Green),
+    ["wall"] = ("#", ConsoleColor.Gray),
+    ["water"] = ("~", ConsoleColor.Blue),
+    ["tree"] = ("T", ConsoleColor.DarkGreen),
+    ["bush"] = ("*", ConsoleColor.DarkYellow),
+    ["rabbit"] = ("r", ConsoleColor.White),
+    ["wolf"] = ("W", ConsoleColor.Red),
+    ["hunter"] = ("H", ConsoleColor.Yellow),
+    ["camp"] = ("A", ConsoleColor.DarkYellow),
+    ["corpse"] = ("%", ConsoleColor.Magenta),
+    ["bones"] = ("%", ConsoleColor.Gray),
 };
 
 // Pick the area from argv. Default = StartingArea (the regular sandbox).

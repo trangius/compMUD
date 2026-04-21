@@ -133,22 +133,47 @@ public class HuntBehavior : IBehavior
     {
         if (cachedPreyAdjacent)
         {
+            // Capture prey state BEFORE anything destructive — DeathHelper
+            // will destroy the entity below, and "attacks ?" in the log
+            // comes from Label() falling back to the name-fallback once
+            // the entity is gone. Also remember the pinned flag for the
+            // "pins" vs "attacks" verb below.
+            Position preyPos = World.GetComponent<Position>(cachedPreyId);
+            int preyX = preyPos.X, preyY = preyPos.Y;
+            bool wasPinned = World.HasComponent<Grappled>(cachedPreyId);
+
             // Bite: damage owned by the Melee component (attacker Str vs defender Tough)
             int damage = World.GetComponent<Melee>(id).Damage(id, cachedPreyId);
             Health targetHealth = World.GetComponent<Health>(cachedPreyId);
             targetHealth.TakeDamage(damage);
 
-            World.Log($"{World.Label(id)} attacks {World.Label(cachedPreyId)} ({targetHealth.Current}/{targetHealth.Max} HP)");
+            // Log BEFORE DeathHelper so the names resolve. Order reads as
+            // "hunter attacks rabbit (0/10 HP)" then "rabbit dies".
+            // "pins" on the first bite that sticks, "attacks" after (or on kill).
+            bool willKill = targetHealth.Current <= 0;
+            string verb = (willKill || wasPinned) ? "attacks" : "pins";
+            World.Log($"{World.Label(id)} {verb} {World.Label(cachedPreyId)} ({targetHealth.Current}/{targetHealth.Max} HP)");
+
             bool killed = DeathHelper.DestroyEntityIfDead(cachedPreyId);
 
             // Raider mission complete — flip the flag and ReturnToForest takes over next tick
             if (killed && World.HasComponent<RaidingWolf>(id))
                 World.GetComponent<RaidingWolf>(id).hasKilled = true;
 
-            // Pin the survivor so it can't just flee next tick. AttachComponent
-            // replaces any existing Grappled — so a second bite refreshes the grip.
-            if (!killed)
+            if (killed)
+            {
+                // Step onto the corpse cell. Being Solid on the kill blocks other
+                // predators from poaching, and next tick's Feed underfoot check
+                // finds it naturally.
+                Position mine = World.GetComponent<Position>(id);
+                MovementHelper.TryMove(id, preyX - mine.X, preyY - mine.Y);
+            }
+            else
+            {
+                // Pin the survivor so it can't just flee next tick. AttachComponent
+                // replaces any existing Grappled — so a second bite refreshes the grip.
                 World.AttachComponent(cachedPreyId, new Grappled { attackerId = id });
+            }
 
             return 3;
         }
