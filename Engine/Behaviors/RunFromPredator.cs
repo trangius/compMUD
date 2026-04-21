@@ -12,8 +12,9 @@ public class RunFromPredatorBehavior : IBehavior
 
     private Random rng;
 
-    // Cached between WouldAct and Act — which threat to flee from.
-    private int cachedThreatId = -1;
+    // Cached between WouldAct and Act — the fleeing step direction.
+    private int cachedStepDx;
+    private int cachedStepDy;
 
     public RunFromPredatorBehavior(Random rng)
     {
@@ -21,8 +22,11 @@ public class RunFromPredatorBehavior : IBehavior
     }
 
     // ----------------------------------------------------------------------------
-    // Look for the nearest predator whose hunt list contains this entity's species.
-    // Cache it for Act.
+    // Read the shared per-tick flow field of predators that hunt this entity's
+    // species. FlowFieldHelper picks the neighbor that's FURTHEST from the
+    // nearest threat (mirror of Hunt's nearest-step pick). The reflex only
+    // fires when a threat is within vision — the helper returns false
+    // otherwise, and Wander/Rest handle the idle case.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -32,22 +36,24 @@ public class RunFromPredatorBehavior : IBehavior
         Position pos = World.GetComponent<Position>(id);
         int range = StatMath.VisionRange(id);
 
-        cachedThreatId = World.FindNearestEntity(pos.X, pos.Y, range, other =>
-            other != id
-            && World.HasComponent<Predator>(other)
-            && World.GetComponent<Predator>(other).Hunts(species.spawn));
+        List<FlowField> fields = new List<FlowField> { World.GetPredatorsHuntingFlowField(species.spawn) };
 
-        return cachedThreatId >= 0;
+        if (!FlowFieldHelper.PickFarthestNeighborStep(
+                pos.X, pos.Y, fields, World.CanCreatureBeHere, range, rng,
+                out FlowFieldStep step))
+            return false;
+
+        cachedStepDx = step.stepDx;
+        cachedStepDy = step.stepDy;
+        return true;
     }
 
     // ----------------------------------------------------------------------------
-    // Step one cell away from the cached threat. Cost 1 — a reflex step is quick.
+    // Step one cell along the cached flee direction. Cost 1 — a reflex step is quick.
     // ----------------------------------------------------------------------------
     public int Act(int id)
     {
-        Position pos = World.GetComponent<Position>(id);
-        Position threatPos = World.GetComponent<Position>(cachedThreatId);
-        MovementHelper.MoveAwayFrom(id, pos, threatPos.X, threatPos.Y, rng);
+        MovementHelper.TryMove(id, cachedStepDx, cachedStepDy);
         return 1;
     }
 }

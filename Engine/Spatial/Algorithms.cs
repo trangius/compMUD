@@ -237,6 +237,84 @@ public static class FlowFieldHelper
         };
         return true;
     }
+
+    // ----------------------------------------------------------------------------
+    // Mirror of PickNearestNeighborStep for fleeing — pick the neighbor that's
+    // FURTHEST from the nearest seed. Used by RunFromPredator: a rabbit reads
+    // the flow field of things that hunt it, picks the 8-neighbor with largest
+    // threat-distance (unreachable-from-threat counts as infinitely safe).
+    //
+    // Needs isPassable because a safe-but-walled-off neighbor won't appear in
+    // the field at all (the flood never reached it). That's exactly the
+    // neighbor a fleeing rabbit should prefer, but we still need to confirm
+    // the rabbit can actually step there. PickNearest gets this for free —
+    // only field-reachable cells are considered, and field-reachable implies
+    // passable — but PickFarthest has to test explicitly.
+    //
+    // Returns false (no flee) when no neighbor has any threat within
+    // `threatVisionRange`. That's the "reflex only fires when I can see a
+    // predator" condition.
+    // ----------------------------------------------------------------------------
+    public static bool PickFarthestNeighborStep(
+        int fromX, int fromY, List<FlowField> fields,
+        Func<int, int, bool> isPassable, int threatVisionRange, Random rng,
+        out FlowFieldStep step)
+    {
+        step = default;
+
+        bool anyThreatInSight = false;
+        int bestScore = int.MinValue;
+        List<(int nx, int ny, int dx, int dy)> tied = new List<(int, int, int, int)>();
+        foreach ((int dx, int dy) offset in neighborOffsets)
+        {
+            int nx = fromX + offset.dx;
+            int ny = fromY + offset.dy;
+
+            if (!isPassable(nx, ny)) continue;
+
+            // Min threat distance via this neighbor across all fields.
+            int cellMinThreat = int.MaxValue;
+            foreach (FlowField f in fields)
+            {
+                if (!f.Reachable(nx, ny)) continue;
+                int d = f.Distance(nx, ny);
+                if (d < cellMinThreat) cellMinThreat = d;
+            }
+
+            // Does this neighbor sit close enough to a threat to trip the reflex?
+            if (cellMinThreat != int.MaxValue && cellMinThreat <= threatVisionRange)
+                anyThreatInSight = true;
+
+            // Higher = safer. An unreachable-from-threat neighbor (int.MaxValue)
+            // is the strongest possible pick — predators can't path there.
+            int score = cellMinThreat;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                tied.Clear();
+                tied.Add((nx, ny, offset.dx, offset.dy));
+            }
+            else if (score == bestScore)
+            {
+                tied.Add((nx, ny, offset.dx, offset.dy));
+            }
+        }
+
+        if (!anyThreatInSight) return false;
+        if (tied.Count == 0) return false;
+
+        (int pickNx, int pickNy, int pickDx, int pickDy) = tied[rng.Next(tied.Count)];
+        step = new FlowFieldStep
+        {
+            bestDist = bestScore,
+            stepDx = pickDx,
+            stepDy = pickDy,
+            neighborX = pickNx,
+            neighborY = pickNy,
+        };
+        return true;
+    }
 }
 
 // ----------------------------------------------------------------------------

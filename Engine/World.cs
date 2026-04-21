@@ -492,4 +492,37 @@ public static class World
         flowFieldCache[category] = fresh;
         return fresh;
     }
+
+    // ----------------------------------------------------------------------------
+    // Get this tick's flow field seeded from every cell holding a predator
+    // whose prey list includes the given species. Used by RunFromPredator —
+    // a rabbit asks "where are the things that hunt me?" and gets the union,
+    // then steps to the neighbor with largest distance (away from the pack).
+    //
+    // Cache key is a composite — a plain species delegate means "this species'
+    // members" (GetSpeciesFlowField); wrapping it in a PredatorsHunting tag
+    // means "predators who hunt this species" — distinct cache entries.
+    // ----------------------------------------------------------------------------
+    public static FlowField GetPredatorsHuntingFlowField(Func<int, int, int> preySpawn)
+    {
+        object key = new PredatorsHuntingKey(preySpawn);
+        if (flowFieldCache.TryGetValue(key, out FlowField? cached)) return cached;
+
+        List<(int x, int y)> seeds = new List<(int, int)>();
+        foreach (int id in AllWithComponent<Predator>())
+        {
+            if (!GetComponent<Predator>(id).Hunts(preySpawn)) continue;
+            if (!HasComponent<Position>(id)) continue;
+            Position p = GetComponent<Position>(id);
+            seeds.Add((p.X, p.Y));
+        }
+
+        FlowField fresh = Algorithms.MultiSourceBFS(seeds, CanCreatureBeHere);
+        flowFieldCache[key] = fresh;
+        return fresh;
+    }
+
+    // Key wrapper so "predators hunting X" caches separately from "members of
+    // species X" in flowFieldCache. Equality is by the wrapped spawn delegate.
+    private sealed record PredatorsHuntingKey(Func<int, int, int> PreySpawn);
 }
