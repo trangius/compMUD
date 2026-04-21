@@ -24,69 +24,94 @@ All in [`Engine/Spatial/Spatial.cs`](../Engine/Spatial/Spatial.cs) ([`MovementHe
 - **[`Wander(id, rng)`](../Engine/Spatial/Spatial.cs#L151)** — random step. Picks one of 8 neighbors uniformly; if
   blocked, stays put. Caller supplies rng for determinism.
 
-## BFS pathfinding
+## Flow fields (multi-source BFS)
 
-[`Engine/Spatial/Algorithms.cs`](../Engine/Spatial/Algorithms.cs) holds the generic flood-fill:
+Perception is all done via flow fields. "Find nearest X" never means a
+per-creature scan — it means reading a flow field that was flooded once
+this tick from every X on the map. Every consumer that asks for the same
+kind of X gets the same cached result.
+
+[`Engine/Spatial/Algorithms.cs`](../Engine/Spatial/Algorithms.cs) holds the flood:
 
 ```csharp
-BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable, rng);
-// bfs.Reachable(x, y)      — did the flood reach (x, y)?
-// bfs.Distance(x, y)       — how many 8-connected steps to get there?
-// bfs.FirstStep(gx, gy)    — (dx, dy) of the first move along the shortest path
+FlowField f = Algorithms.MultiSourceBFS(sourceCells, isPassable);
+// f.Reachable(x, y)    — did the flood reach (x, y)?
+// f.Distance(x, y)     — steps from (x, y) to the nearest source
+// f.StepToward(x, y)   — unit direction from (x, y) one step closer to source
 ```
 
-`isPassable` is supplied by the caller — that's the extension point for
-swimmer / climber creatures later. Today everyone passes [`World.CanCreatureBeHere`](../Engine/World.cs#L355)
-(has Walkable, no Solid).
+Seed cells skip the passability test (a prey cell is Solid but still a
+valid seed). All other cells must pass `isPassable`. Diagonals cost 1 —
+distances are Chebyshev.
 
-The optional `rng` shuffles neighbor-iteration order once per call. BFS still
-finds optimal paths, but which of several equal-length paths survives in
-`cameFrom` (and so which step `FirstStep` returns) varies. Without that,
-many callers flooding toward the same goal picked identical first steps
-and lined up. Omit `rng` and the flood is deterministic.
+Consumers don't call `MultiSourceBFS` directly. They ask `World` for the
+flow field they need, cached per tick:
 
-**Diagonals cost 1**, same as cardinals. The returned `Distance` is Chebyshev
-distance. Slight "cheat" on long paths (a diagonal crossing should really be
-~1.41×), but the game is grid-turn-based and the simplification lets
-diagonals behave naturally in movement and BFS alike.
+| Lookup | Sources |
+|---|---|
+| `World.GetSpeciesFlowField(spawn)` | entities where `Species.spawn == spawn` |
+| `World.GetYieldFlowField(category)` | entities with `Yields` containing `category` and no `Health` |
+| `World.GetPredatorsHuntingFlowField(prey)` | entities where `Predator.Hunts(prey)` is true |
+| `World.GetComponentFlowField<T>()` | entities with component `T` (marker) |
+
+Reading a flow field happens via [`FlowFieldHelper`](../Engine/Spatial/Algorithms.cs):
+
+```csharp
+// "Step toward the nearest source" — Hunt, Feed, ReturnToForest
+FlowFieldHelper.PickNearestNeighborStep(pos.X, pos.Y, fields, maxRange, rng, out step);
+
+// "Step AWAY from the nearest source" — RunFromPredator
+FlowFieldHelper.PickFarthestNeighborStep(pos.X, pos.Y, fields, isPassable, visionRange, rng, out step);
+```
+
+Both scan the caller's 8 neighbors — the caller's own cell is Solid so it
+never appears in a flow field. Random tiebreak on equally-good neighbors
+keeps packs from funneling through one cell.
+
+Why flow fields instead of per-creature BFS: at N creatures, per-creature
+BFS is O(N × vision²); one multi-source BFS is O(reachable map cells),
+independent of N. The cost shape stops growing with population.
 
 ## Who uses what
 
-| Behavior | Target discovery | Stepping |
+| Behavior | Perception | Stepping |
 |---|---|---|
-| [`FeedBehavior`](../Engine/Behaviors/Feeding.cs#L43) | BFS — scans reached cells for edibles | `TryMove` with cached first-step |
-| [`HuntBehavior`](../Engine/Behaviors/Hunt.cs#L60) | BFS — scans reachable neighbors of prey | `TryMove` with cached first-step |
-| [`ReturnToForestBehavior`](../Engine/Behaviors/WolfRaid.cs#L17) | BFS — nearest reachable [`Tree`](../Engine/Tree.cs#L5) | `TryMove` with cached first-step |
-| [`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs#L9) | [`FindNearestEntity`](../Engine/World.cs#L310) (Euclidean circle) | `MoveAwayFrom` (one-step greedy) |
-| [`BreedBehavior`](../Engine/Behaviors/Breeding.cs#L15) | `FindNearestEntity` | `MoveToward` (one-step greedy) |
-| [`WanderBehavior`](../Engine/Behaviors/Wander.cs#L4) | — | `Wander` (uniform random) |
+| [`HuntBehavior`](../Engine/Behaviors/Hunt.cs) | `GetSpeciesFlowField(prey)` → `PickNearestNeighborStep` | `TryMove` with cached step |
+| [`FeedBehavior`](../Engine/Behaviors/Feeding.cs) | `GetYieldFlowField(category)` → `PickNearestNeighborStep` | `TryMove` with cached step |
+| [`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs) | `GetPredatorsHuntingFlowField(myspecies)` → `PickFarthestNeighborStep` | `TryMove` with cached step |
+| [`ReturnToForestBehavior`](../Engine/Behaviors/WolfRaid.cs) | `GetComponentFlowField<Tree>()` → `PickNearestNeighborStep` | `TryMove` with cached step |
+| [`BreedBehavior`](../Engine/Behaviors/Breeding.cs) | [`FindNearestEntity`](../Engine/World.cs) (Euclidean — same-species mate) | `MoveToward` (one-step greedy) |
+| [`WanderBehavior`](../Engine/Behaviors/Wander.cs) | — | `Wander` (uniform random) |
 
 ## Vision vs reachability
 
 [`StatMath.VisionRange(id)`](../Engine/Stats/StatMath.cs#L29) returns one number (= [`Stats.Perception`](../Engine/Stats/Stats.cs#L17)), but two
 functions interpret it differently:
 
-- **[`FindNearestEntity(x, y, range, filter)`](../Engine/World.cs#L310)** — scans a `[-range, +range]²`
+- **[`FindNearestEntity(x, y, range, filter)`](../Engine/World.cs)** — scans a `[-range, +range]²`
   box, filters by `dx² + dy² ≤ range²`. That's a **Euclidean disk**.
-- **[`Algorithms.BFS(x, y, maxRange, ...)`](../Engine/Spatial/Algorithms.cs#L28)** — flood of 8-connected steps up
-  to `maxRange`. That's a **Chebyshev square**.
+- **Flow-field distance** — graph distance in 8-connected steps, respecting
+  obstacles (unreachable cells have no entry at all). That's **Chebyshev**.
 
 Consequences:
 
-- The Euclidean disk fits *inside* the Chebyshev square — anything visible by
-  Euclidean is also reachable by BFS, assuming no obstacles.
-- With obstacles, a prey can be "visible" (Euclidean) but unreachable (BFS
-  needs > maxRange steps around a pond). `HuntBehavior` dodges this by
-  BFS-first target discovery — it only considers prey it can path to. `RunFromPredatorBehavior` / `BreedBehavior` still use Euclidean; they don't
-  path-commit, so "see but can't reach" isn't a bug for them.
+- The Euclidean disk fits inside the Chebyshev square — anything visible by
+  Euclidean is also reachable by flow field, assuming no obstacles.
+- With obstacles, a target can be "visible" (Euclidean) but unreachable
+  (no flood path around a pond). Flow-field consumers naturally skip
+  unreachable targets. `BreedBehavior` is the only remaining Euclidean
+  consumer — mating doesn't path-commit, so "see but can't reach" isn't a
+  bug there.
 
 ## 8-connected adjacency
 
 "Adjacent" means Chebyshev ≤ 1, i.e. any of the 8 surrounding cells. Not
 Manhattan ≤ 1. Used by:
 
-- `HuntBehavior` — bite when prey is Chebyshev-adjacent.
-- [`BreedBehavior.FindAdjacentMate`](../Engine/Behaviors/Breeding.cs#L133) — mate is on any of the 8 neighbors.
-- `ReturnToForestBehavior` — a tree on the same cell or next-door.
+- `HuntBehavior` — bite when prey is Chebyshev-adjacent (distance 0 in the
+  prey flow field at a neighbor cell).
+- [`BreedBehavior.FindAdjacentMate`](../Engine/Behaviors/Breeding.cs) — mate is on any of the 8 neighbors.
+- `ReturnToForestBehavior` — a tree on the same cell (despawn) or one step
+  away (step there next tick).
 
 If you're writing a new proximity check, prefer `Math.Max(Math.Abs(dx), Math.Abs(dy))`.

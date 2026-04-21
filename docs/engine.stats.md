@@ -93,4 +93,4 @@ the tick some behavior would use it; give it a low default on the
 ## Related
 
 - [`docs/engine.scheduler.md`](engine.scheduler.md) — how `AgilityPaced` uses `ActionPeriod`.
-- [`docs/engine.movement.md`](engine.movement.md) — how `VisionRange` drives BFS range.
+- [`docs/engine.movement.md`](engine.movement.md) — how `VisionRange` gates flow-field neighbor picks.

@@ -73,6 +73,10 @@ You can pipe input for scripted runs.
 - Do not refactor large systems unless explicitly asked.
 - If you notice unrelated dead code, mention it — don't delete it.
 - If you wrote 200 lines and it could be 50, rewrite it.
+- Per-creature perception ("find / flee nearest X") goes through a flow
+  field. Use `World.Get…FlowField(…)` + `FlowFieldHelper.Pick…NeighborStep`.
+  Never write per-creature cell scans or per-creature BFS floods for this.
+  See [docs/engine.movement.md](docs/engine.movement.md) for the pattern.
 
 ## Comments
 - Comments are navigation — you should understand a file by reading only the
@@ -149,7 +153,7 @@ implementation.
 | `docs/engine.tick.md` | The two-pass dispatcher (actions then effects), grapple handling, cost multipliers. |
 | `docs/engine.scheduler.md` | `AgilityPaced` vs `FixedPaced`, action-cost mechanics, baby-first-period. |
 | `docs/engine.stats.md` | Stats schema, derived abilities, stat-vs-resource split. |
-| `docs/engine.movement.md` | 8-connected movement helpers, BFS, vision-vs-reachability. |
+| `docs/engine.movement.md` | 8-connected movement helpers, flow fields (multi-source BFS), vision-vs-reachability. |
 | `docs/engine.species.md` | Species identity via the spawn delegate; breeding, hunting, caps. |
 | `docs/engine.spatial-index.md` | Position's self-sync pattern, the four write paths, the read-only query surface. |
 | `docs/engine.filestructure.md` | Folder and file map of `Engine/`; file-per-feature principle. |

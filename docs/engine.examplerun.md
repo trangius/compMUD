@@ -67,12 +67,12 @@ Later, a raid wolf has chased a rabbit across the pasture and now stands
 adjacent to it. This is how the engine handles the attempted kill and,
 if the rabbit survives, the pin that follows.
 
-The wolf's turn comes up. [`HuntBehavior.WouldAct`](../Engine/Behaviors/Hunt.cs#L83) floods the reachable
-cells with BFS out to `Stats.Perception`, scans every `Species` holder
-the flood touched, keeps those on the wolf's `preySpecies` set, and picks
-the nearest. The rabbit is adjacent — the wolf's own cell is a neighbor
-of the rabbit's, BFS distance zero — so the behavior caches the rabbit
-and flags "adjacent".
+The wolf's turn comes up. [`HuntBehavior.WouldAct`](../Engine/Behaviors/Hunt.cs) asks
+`World.GetSpeciesFlowField(CreateRabbit)` for this tick's shared flood
+from every rabbit cell, then checks its 8 neighbors via
+`FlowFieldHelper.PickNearestNeighborStep`. The rabbit is adjacent — one
+of the wolf's neighbors IS the rabbit's cell, distance zero in the flow
+field — so the behavior caches the rabbit and flags "adjacent".
 
 [`HuntBehavior.Act`](../Engine/Behaviors/Hunt.cs#L152) reads [`Melee.Damage(wolfId, rabbitId)`](../Engine/Behaviors/Hunt.cs#L38) (attacker's
 `Strength`, defender's `Toughness`), calls `TakeDamage` on the rabbit's

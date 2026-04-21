@@ -20,7 +20,7 @@ Engine/
   Spatial/
 ```
 - [`Spatial.cs`](../Engine/Spatial/Spatial.cs) — [`Position`](../Engine/Spatial/Spatial.cs#L9), [`Walkable`](../Engine/Spatial/Spatial.cs#L25), [`Solid`](../Engine/Spatial/Spatial.cs#L29) (marker States) + [`MovementHelper`](../Engine/Spatial/Spatial.cs#L34) ([`TryMove`](../Engine/Spatial/Spatial.cs#L48), [`MoveToward`](../Engine/Spatial/Spatial.cs#L81), [`MoveAwayFrom`](../Engine/Spatial/Spatial.cs#L113), [`Wander`](../Engine/Spatial/Spatial.cs#L151) — all 8-connected).
-- [`Algorithms.cs`](../Engine/Spatial/Algorithms.cs) — Generic grid [`BFS`](../Engine/Spatial/Algorithms.cs#L28) + [`BFSResult`](../Engine/Spatial/Algorithms.cs#L81) (distance, FirstStep). Used by Feed, Hunt, and ReturnToForest.
+- [`Algorithms.cs`](../Engine/Spatial/Algorithms.cs) — Multi-source BFS, the `FlowField` it produces, and the `FlowFieldHelper` that reads it. All perception ("find nearest X", "step away from nearest X") goes through here. See [engine.movement.md](engine.movement.md).
 
 ```
   Stats/
