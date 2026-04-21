@@ -88,6 +88,73 @@ public static class Archetypes
     }
 
     // ----------------------------------------------------------------------------
+    // A camp: single tile that holds a stockpile. No behaviors — the camp is
+    // inert infrastructure. Its Container is what hunters deposit into and
+    // eat from. Capacity is big so several kills' worth fit before overflow.
+    // ----------------------------------------------------------------------------
+    public static int CreateCamp(int x, int y)
+    {
+        int e = World.CreateEntity();
+        World.AttachComponent(e, new Position(x, y));
+        World.AttachComponent(e, new Appearance { spriteId = "camp", layer = 2 });
+        World.AttachComponent(e, new Named { name = "Camp" });
+        World.AttachComponent(e, new Walkable());
+        World.AttachComponent(e, new Camp());
+        World.AttachComponent(e, new Container(capacity: 5000));
+        return e;
+    }
+
+    // ----------------------------------------------------------------------------
+    // A hunter: humanoid tied to a camp. Has the full state profile of an
+    // economic actor — backpack, home pointer, diet/collects split, hunter
+    // stats — but NO behaviors yet. The hunter stands still in this commit;
+    // the six behaviors that make the loop work land next.
+    //
+    // No Species — hunters don't breed and nothing hunts them yet. Add when
+    // a human-targeting predator or a breeding mechanic appears.
+    //
+    // Strength 60 drops a rabbit in one hit (rabbit HP 10); Toughness 40 is
+    // less than a wolf's 50. Agility 72 beats rabbit's 70 so the hunter can
+    // actually close on fleeing prey — period 85-Ag = 13 vs rabbit's 15.
+    // Revisit if traps or ranged weapons show up; a real human is slower
+    // than a rabbit.
+    //
+    // Energy drains at 0.25 units/tick — a trained human on expedition burns
+    // slower than a creature's baseline 1.0. Has to be low enough that
+    // meat-in-per-trip outpaces energy-out-per-trip, or the stockpile
+    // bleeds and the hunter eventually starves.
+    // ----------------------------------------------------------------------------
+    public static int CreateHunter(int x, int y, int campId)
+    {
+        int e = World.CreateEntity();
+        World.AttachComponent(e, new Position(x, y));
+        World.AttachComponent(e, new Appearance { spriteId = "hunter", layer = 4 });
+        World.AttachComponent(e, new Named { name = "Hunter" });
+        World.AttachComponent(e, new Solid());
+        World.AttachComponent(e, new Stats { Strength = 60, Agility = 72, Perception = 80, Toughness = 40 });
+        World.AttachComponent(e, new AgilityPaced());
+        World.AttachComponent(e, new Health(50));
+        World.AttachComponent(e, new Melee());
+        World.AttachComponent(e, new Energy(3000, drainPerTick: 0.25));
+        World.AttachComponent(e, new Predator(CreateRabbit));
+        // Diet gates eating; Collects gates what goes in the backpack.
+        // Hunter eats meat but hauls pelts home as cargo.
+        World.AttachComponent(e, new Diet(Resources.Meat));
+        World.AttachComponent(e, new Collects(Resources.Meat, Resources.Pelt));
+        World.AttachComponent(e, new Container(capacity: 1500));  // backpack
+        World.AttachComponent(e, new Home(campId));
+        // Placeholder yields for if a hunter is killed.
+        World.AttachComponent(e, new Yields(
+            new Yield(Resources.Meat, 400),
+            new Yield(Resources.Bone, 60)
+        ));
+        // Empty Behaviors list — hunter sits still. Behaviors land next commit.
+        World.AttachComponent(e, new Behaviors());
+        World.AttachComponent(e, new Effects(new EnergyDrainEffect()));
+        return e;
+    }
+
+    // ----------------------------------------------------------------------------
     // Wolf raid spawner: a singleton entity with no position, just an Effect that
     // rolls a per-tick chance of unleashing a wolf from a random tree cell.
     // Keeps area-level event logic declarative — HomeArea just creates one.

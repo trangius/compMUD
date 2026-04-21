@@ -45,6 +45,8 @@ public class Game1 : Game
         ["tree"]    = ("\ue21c", new Color(0, 120, 0)),
         ["bush"]    = ("\U000f024a", new Color(100, 160, 50)),
         ["rabbit"]  = ("\U000f0907", new Color(220, 220, 220)),
+        ["hunter"]  = ("", new Color(240, 200, 100)),
+        ["camp"]    = ("", new Color(180, 120, 60)),
         ["wolf"]    = ("\uedde", new Color(200, 60, 60)),
         ["corpse"]  = ("\U000f068c", new Color(220, 120, 160)),
         ["bones"]   = ("\U000f068c", new Color(200, 200, 200)),
@@ -428,15 +430,16 @@ public class Game1 : Game
         sidebarFont.DrawText(spriteBatch, $"Speed: {ticksPerSecond} ticks/s", new Vector2(sidebarX, line * lh), new Color(150, 150, 150));
         line++;
 
-        int rabbits = 0, wolves = 0;
+        int rabbits = 0, wolves = 0, hunters = 0;
         foreach (int id in World.AllWithComponent<Named>())
         {
             string name = World.GetComponent<Named>(id).name;
             if (name == "Rabbit") rabbits++;
             else if (name == "Wolf") wolves++;
+            else if (name == "Hunter") hunters++;
         }
         int corpses = World.AllWithComponent<Corpse>().Count;
-        sidebarFont.DrawText(spriteBatch, $"R:{rabbits} W:{wolves} C:{corpses}", new Vector2(sidebarX, line * lh), Color.White);
+        sidebarFont.DrawText(spriteBatch, $"R:{rabbits} W:{wolves} H:{hunters} C:{corpses}", new Vector2(sidebarX, line * lh), Color.White);
         line++;
         sidebarFont.DrawText(spriteBatch, sep, new Vector2(sidebarX, line * lh), Color.Gray);
         line++;
@@ -520,6 +523,30 @@ public class Game1 : Game
                 DrawBarRect(grapX, barY, barColWidth - barGap, barH, 1f, Color.Orange);
             }
 
+            line++;
+        }
+
+        // Inventory block — one line per Container in the world. Backpacks
+        // sit on a creature; camp storage sits on the camp tile. Lets you see
+        // what's being carried and what's stockpiled without hovering.
+        foreach (int id in World.AllWithComponent<Container>())
+        {
+            if (line * lh >= legendStartY - 2 * lh) break;
+            Container c = World.GetComponent<Container>(id);
+            string glyph = "?";
+            Color rowColor = Color.Gray;
+            if (World.HasComponent<Appearance>(id) && sprites.ContainsKey(World.GetComponent<Appearance>(id).spriteId))
+            {
+                glyph = sprites[World.GetComponent<Appearance>(id).spriteId].glyph;
+                rowColor = sprites[World.GetComponent<Appearance>(id).spriteId].color;
+            }
+            string kind = World.HasComponent<Camp>(id) ? "camp" : "pack";
+            string contents = c.stacks.Count == 0
+                ? "(empty)"
+                : string.Join(", ", c.stacks.Select(s => $"{s.category.name} {s.amount}"));
+            string row = $"{glyph} {id,3} {kind}: {contents}";
+            if (row.Length > sidebarChars) row = row.Substring(0, sidebarChars);
+            sidebarFont.DrawText(spriteBatch, row, new Vector2(sidebarX, line * lh), rowColor);
             line++;
         }
 

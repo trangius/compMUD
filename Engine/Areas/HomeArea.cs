@@ -136,5 +136,39 @@ public static class HomeArea
         // chance each tick of releasing a wolf from a random tree. That wolf hunts
         // one rabbit, then retreats to the forest and vanishes.
         Archetypes.CreateWolfRaidSpawner();
+
+        // A camp in the SE pasture, well clear of the NW forest where wolves
+        // emerge. One hunter tied to it. No behaviors on the hunter yet — the
+        // loop (hunt → butcher → return → deposit → eat) ships next commit;
+        // today the hunter just stands around.
+        (int campX, int campY) = World.FindCell((cx, cy) =>
+            cx > width * 2 / 3 && cy > height * 2 / 3 && World.IsOpenGround(cx, cy), rng);
+        if (campX >= 0)
+        {
+            int campId = Archetypes.CreateCamp(campX, campY);
+            // Place the hunter on a nearby passable cell, random pick from a
+            // small 3-radius disk. FindCell won't do — on a big map most
+            // attempts land far from the camp, and the hunter fails to place.
+            List<(int dx, int dy)> nearby = new List<(int, int)>();
+            for (int dx = -3; dx <= 3; dx++)
+                for (int dy = -3; dy <= 3; dy++)
+                    if (dx * dx + dy * dy <= 9 && (dx != 0 || dy != 0))
+                        nearby.Add((dx, dy));
+            for (int i = nearby.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (nearby[i], nearby[j]) = (nearby[j], nearby[i]);
+            }
+            foreach ((int dx, int dy) in nearby)
+            {
+                int hx = campX + dx;
+                int hy = campY + dy;
+                if (hx < 2 || hx >= World.mapWidth - 2) continue;
+                if (hy < 2 || hy >= World.mapHeight - 2) continue;
+                if (!World.CanCreatureBeHere(hx, hy)) continue;
+                Archetypes.CreateHunter(hx, hy, campId);
+                break;
+            }
+        }
     }
 }

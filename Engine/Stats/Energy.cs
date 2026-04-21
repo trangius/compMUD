@@ -9,16 +9,32 @@ public class Energy
     public int Current { get; private set; }
     public int Max { get; }
 
-    private int drainRate;
+    // Energy units drained per tick. Fractional (e.g. 0.25) for slower
+    // metabolisms; the accumulator below carries the carry-over so Current
+    // only drops by whole units.
+    private double drainPerTick;
+    private double drainAccumulator;
 
-    public Energy(int max, int drainRate = 1)
+    public Energy(int max, double drainPerTick = 1.0)
     {
         Max = max;
         Current = max;
-        this.drainRate = drainRate;
+        this.drainPerTick = drainPerTick;
     }
 
-    public void Drain() { Current = Math.Max(0, Current - drainRate); }
+    // ----------------------------------------------------------------------------
+    // Tick forward by drainPerTick. Drop whole units once the accumulator
+    // crosses 1 — no partial-unit state, Current stays clean integer.
+    // ----------------------------------------------------------------------------
+    public void Drain()
+    {
+        drainAccumulator += drainPerTick;
+        while (drainAccumulator >= 1.0)
+        {
+            Current = Math.Max(0, Current - 1);
+            drainAccumulator -= 1.0;
+        }
+    }
     public void Restore(int amount) { Current = Math.Min(Max, Current + amount); }
 
     // Force-set the current value. Used by area builders that want their starting

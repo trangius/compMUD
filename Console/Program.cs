@@ -11,6 +11,8 @@ Dictionary<string, (string glyph, ConsoleColor color)> sprites = new()
     ["bush"]    = ("*", ConsoleColor.DarkYellow),
     ["rabbit"]  = ("r", ConsoleColor.White),
     ["wolf"]    = ("W", ConsoleColor.Red),
+    ["hunter"]  = ("H", ConsoleColor.Yellow),
+    ["camp"]    = ("A", ConsoleColor.DarkYellow),
     ["corpse"]  = ("%", ConsoleColor.Magenta),
     ["bones"]   = ("%", ConsoleColor.Gray),
 };
@@ -184,19 +186,32 @@ static void RenderMap(Dictionary<string, (string glyph, ConsoleColor color)> spr
 
 static void ShowStatus()
 {
-    int rabbits = 0, wolves = 0;
+    int rabbits = 0, wolves = 0, hunters = 0;
 
     foreach (int id in World.AllWithComponent<Named>())
     {
         string name = World.GetComponent<Named>(id).name;
         if (name == "Rabbit") rabbits++;
         else if (name == "Wolf") wolves++;
+        else if (name == "Hunter") hunters++;
     }
 
     int corpses = World.AllWithComponent<Corpse>().Count;
     int vegetation = World.AllWithComponent<Vegetation>().Count;
 
-    Console.WriteLine($"Turn {World.tickCount} — Rabbits: {rabbits}  Wolves: {wolves}  Corpses: {corpses}  Vegetation: {vegetation}");
+    Console.WriteLine($"Turn {World.tickCount} — Rabbits: {rabbits}  Wolves: {wolves}  Hunters: {hunters}  Corpses: {corpses}  Vegetation: {vegetation}");
+
+    // One line per container in the world — backpack on a creature, stockpile
+    // at a camp. Quick glance at what's being carried / stored.
+    foreach (int id in World.AllWithComponent<Container>())
+    {
+        Container c = World.GetComponent<Container>(id);
+        string kind = World.HasComponent<Camp>(id) ? "Camp" : "Pack";
+        string contents = c.stacks.Count == 0
+            ? "empty"
+            : string.Join(", ", c.stacks.Select(s => $"{s.category.name} {s.amount}"));
+        Console.WriteLine($"  {kind} {World.Label(id)}: {contents} ({c.Used}/{c.capacity})");
+    }
 }
 
 static void ShowCellInfo(int x, int y)
@@ -281,6 +296,25 @@ static void ShowCellInfo(int x, int y)
             Yields yields = World.GetComponent<Yields>(id);
             string parts = string.Join(",", yields.entries.Select(e => $"{e.category.name}x{e.amount}"));
             tags.Add($"Yields:[{parts}]");
+        }
+        if (World.HasComponent<Collects>(id))
+        {
+            Collects c = World.GetComponent<Collects>(id);
+            tags.Add($"Collects:[{string.Join(",", c.allowed.Select(k => k.name))}]");
+        }
+        if (World.HasComponent<Container>(id))
+        {
+            Container c = World.GetComponent<Container>(id);
+            string kind = World.HasComponent<Camp>(id) ? "Storage" : "Pack";
+            string contents = c.stacks.Count == 0
+                ? "empty"
+                : string.Join(",", c.stacks.Select(s => $"{s.category.name}x{s.amount}"));
+            tags.Add($"{kind}:[{contents}] ({c.Used}/{c.capacity})");
+        }
+        if (World.HasComponent<Home>(id))
+        {
+            Home h = World.GetComponent<Home>(id);
+            tags.Add($"Home:camp#{h.campId}");
         }
         if (World.HasComponent<Breeding>(id))
         {

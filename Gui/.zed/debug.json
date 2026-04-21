@@ -1,0 +1,30 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+    {
+        "adapter": "netcoredbg",
+        "label": "Debug Console",
+        "request": "launch",
+        "program": "$ZED_WORKTREE_ROOT/Console/bin/Debug/net9.0/Console.dll",
+        "cwd": "$ZED_WORKTREE_ROOT/Console/bin/Debug/net9.0",
+        "build": {
+            "command": "dotnet",
+            "args": ["build", "Console/Console.csproj"],
+            "cwd": "$ZED_WORKTREE_ROOT",
+        },
+    },
+    {
+        "adapter": "netcoredbg",
+        "label": "Debug Game (Gui)",
+        "request": "launch",
+        "program": "$ZED_WORKTREE_ROOT/Gui/bin/Debug/net9.0/Game.dll",
+        "cwd": "$ZED_WORKTREE_ROOT/Gui/bin/Debug/net9.0",
+        "build": {
+            "command": "dotnet",
+            "args": ["build", "Gui/Game.csproj"],
+            "cwd": "$ZED_WORKTREE_ROOT",
+        },
+    },
+]
