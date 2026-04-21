@@ -61,24 +61,37 @@ public class HuntBehavior : IBehavior
 {
     public int Priority => 20;
 
+    // Random tie-breaks when several neighbor cells point at equally-close
+    // prey — without this, a wolf pack converging on the same rabbit funnels
+    // through one cell and stacks up.
+    private Random rng;
+
+    public HuntBehavior(Random rng)
+    {
+        this.rng = rng;
+    }
+
     // Cached between WouldAct and Act.
     private int cachedPreyId = -1;
     private bool cachedPreyAdjacent;
     private int cachedStepDx;
     private int cachedStepDy;
 
-    // 8-connected adjacency — a diagonal cell next to the prey is a valid bite spot.
-    private static readonly (int dx, int dy)[] adjacentOffsets = {
+    // 8-connected neighborhood — the wolf's own cell is Solid so the flow
+    // field never contains it; instead the wolf reads these 8 cells to find
+    // the one that's closest to prey.
+    private static readonly (int dx, int dy)[] neighborOffsets = {
         (0, -1), (0, 1), (1, 0), (-1, 0),
         (1, -1), (1, 1), (-1, -1), (-1, 1)
     };
 
     // ----------------------------------------------------------------------------
-    // BFS the reachable cells once, then pick the nearest reachable prey on this
-    // hunter's species list. "Nearest reachable" = the prey whose closest 8-neighbor
-    // has the smallest BFS distance. Distance 0 means the hunter is already next
-    // to its prey (wolf's own cell IS a neighbor of prey), so we cache a bite.
-    // No reachable prey? Decline — Hunt yields the tick to a lower-priority behavior.
+    // Read the shared per-tick flow field for each prey species this hunter
+    // hunts. Walk the hunter's 8 neighbors, pick the one with smallest field
+    // distance across all prey species (random tiebreak). That neighbor is the
+    // next step. If its distance is 0, the neighbor IS a prey cell — bite the
+    // prey sitting there. If the step-effective distance (d + 1, one for the
+    // hunter's own step) exceeds vision, decline.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -88,60 +101,74 @@ public class HuntBehavior : IBehavior
         Position pos = World.GetComponent<Position>(id);
         int range = StatMath.VisionRange(id);
 
-        // Single BFS flood. Same passability as the mover uses, so anything we
-        // find a path to is genuinely reachable this tick.
-        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
+        // Union the flow fields of every species on our prey list. In practice
+        // most predators hunt a single species, so this loop is short.
+        List<FlowField> fields = new List<FlowField>();
+        foreach (Func<int, int, int> preySpawn in predator.preySpecies)
+            fields.Add(World.GetSpeciesFlowField(preySpawn));
 
-        // Scan every species-holder in the world; keep the reachable ones on our
-        // prey list. For each, find its closest BFS-reachable 8-neighbor.
-        int bestPrey = -1;
+        // Scan our 8 neighbors against every prey field; pick the smallest
+        // distance, collect ties for random pick.
         int bestDist = int.MaxValue;
-        (int x, int y) bestApproach = (-1, -1);
-        foreach (int other in World.AllWithComponent<Species>())
+        List<(int nx, int ny, int dx, int dy)> tied = new List<(int, int, int, int)>();
+        foreach ((int dx, int dy) offset in neighborOffsets)
         {
-            if (other == id) continue;
-            if (!predator.Hunts(World.GetComponent<Species>(other).spawn)) continue;
-            if (!World.HasComponent<Health>(other)) continue;
+            int nx = pos.X + offset.dx;
+            int ny = pos.Y + offset.dy;
 
-            Position preyPos = World.GetComponent<Position>(other);
-
-            // Nearest approach cell for this particular prey
-            int preyBestDist = int.MaxValue;
-            (int x, int y) preyBestCell = (-1, -1);
-            foreach ((int dx, int dy) offset in adjacentOffsets)
+            // Each prey field might give this cell a different distance; take
+            // the minimum since we want the nearest prey of ANY hunted species.
+            int cellBest = int.MaxValue;
+            foreach (FlowField f in fields)
             {
-                int cx = preyPos.X + offset.dx;
-                int cy = preyPos.Y + offset.dy;
-                if (!bfs.Reachable(cx, cy)) continue;
-                int d = bfs.Distance(cx, cy);
-                if (d < preyBestDist)
-                {
-                    preyBestDist = d;
-                    preyBestCell = (cx, cy);
-                }
+                if (!f.Reachable(nx, ny)) continue;
+                int d = f.Distance(nx, ny);
+                if (d < cellBest) cellBest = d;
             }
+            if (cellBest == int.MaxValue) continue;  // no prey reachable via this neighbor
 
-            if (preyBestDist < bestDist)
+            if (cellBest < bestDist)
             {
-                bestDist = preyBestDist;
-                bestPrey = other;
-                bestApproach = preyBestCell;
+                bestDist = cellBest;
+                tied.Clear();
+                tied.Add((nx, ny, offset.dx, offset.dy));
+            }
+            else if (cellBest == bestDist)
+            {
+                tied.Add((nx, ny, offset.dx, offset.dy));
             }
         }
 
-        if (bestPrey < 0) return false;  // no reachable prey on our hunt list
+        if (tied.Count == 0) return false;  // no reachable prey in any direction
 
-        cachedPreyId = bestPrey;
-        // bestDist == 0 means a prey-adjacent cell is OUR cell — we're adjacent, bite.
+        // Hunter's effective distance is neighbor-dist + 1 (we still have to
+        // step to the neighbor). Out-of-vision prey — ignore.
+        if (bestDist + 1 > range) return false;
+
+        (int pickNx, int pickNy, int stepDx, int stepDy) = tied[rng.Next(tied.Count)];
+
+        // Distance 0 at a neighbor means the neighbor IS a prey cell (seed of
+        // the flow field). Pull the prey id from that cell — it must be a
+        // Species entity on our prey list AND have Health, same filter the
+        // flow-field seeder applied. If the prey evaporated between tick
+        // start and now, fall through to "walk there anyway" (rare).
         if (bestDist == 0)
         {
-            cachedPreyAdjacent = true;
+            foreach (int other in World.EntitiesAt(pickNx, pickNy))
+            {
+                if (other == id) continue;
+                if (!World.HasComponent<Species>(other)) continue;
+                if (!predator.Hunts(World.GetComponent<Species>(other).spawn)) continue;
+                if (!World.HasComponent<Health>(other)) continue;
+                cachedPreyId = other;
+                cachedPreyAdjacent = true;
+                return true;
+            }
         }
-        else
-        {
-            cachedPreyAdjacent = false;
-            (cachedStepDx, cachedStepDy) = bfs.FirstStep(bestApproach.x, bestApproach.y);
-        }
+
+        cachedPreyAdjacent = false;
+        cachedStepDx = stepDx;
+        cachedStepDy = stepDy;
         return true;
     }
 

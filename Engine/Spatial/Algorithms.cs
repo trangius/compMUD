@@ -71,6 +71,81 @@ public static class Algorithms
 
         return result;
     }
+
+    // ----------------------------------------------------------------------------
+    // Multi-source BFS — flood outward from many seed cells at once, through
+    // cells where isPassable returns true. Returns a FlowField: every reached
+    // cell knows its distance to the NEAREST seed and the direction one step
+    // toward that seed.
+    //
+    // Seed cells themselves skip the passability test — same exemption BFS
+    // above makes for the start cell. So a prey cell (Solid) can be a seed;
+    // the flood propagates from it into passable neighbors but never re-enters
+    // the seed. Seeds get distance 0 and stepToward (0,0).
+    //
+    // No maxRange parameter — consumers apply their own vision check against
+    // the per-cell distance. The point of this algorithm is one flood per tick
+    // covering every consumer, so bounding by any single consumer's vision
+    // would defeat the purpose.
+    // ----------------------------------------------------------------------------
+    public static FlowField MultiSourceBFS(IEnumerable<(int x, int y)> sources, Func<int, int, bool> isPassable)
+    {
+        FlowField result = new FlowField();
+
+        // Seed every source at distance 0. Multiple sources share the queue —
+        // BFS resolves ties at a cell by whichever source reaches it first,
+        // which is also the nearest in step count.
+        Queue<(int x, int y)> frontier = new Queue<(int, int)>();
+        foreach ((int x, int y) src in sources)
+        {
+            if (result.distance.ContainsKey(src)) continue;  // duplicate source cell
+            result.distance[src] = 0;
+            result.stepToward[src] = (0, 0);
+            frontier.Enqueue(src);
+        }
+
+        // Standard BFS. stepToward[N] = direction from N one step back to the
+        // parent C (N's predecessor on the path from N back to the nearest
+        // source). That's (Cx - Nx, Cy - Ny), always a unit 8-direction.
+        while (frontier.Count > 0)
+        {
+            (int x, int y) cell = frontier.Dequeue();
+            int nextDist = result.distance[(cell.x, cell.y)] + 1;
+
+            foreach ((int dx, int dy) dir in directions)
+            {
+                int nx = cell.x + dir.dx;
+                int ny = cell.y + dir.dy;
+                (int, int) key = (nx, ny);
+
+                if (result.distance.ContainsKey(key)) continue;
+                if (!isPassable(nx, ny)) continue;
+
+                result.distance[key] = nextDist;
+                result.stepToward[key] = (cell.x - nx, cell.y - ny);
+                frontier.Enqueue((nx, ny));
+            }
+        }
+
+        return result;
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Output of a multi-source BFS. For every reachable cell:
+//   distance  = steps to the nearest seed
+//   stepToward = the one-cell unit direction you'd take from here to move
+//                closer to that nearest seed
+// Seed cells themselves have distance 0 and stepToward (0, 0).
+// ----------------------------------------------------------------------------
+public class FlowField
+{
+    public Dictionary<(int x, int y), int> distance = new Dictionary<(int, int), int>();
+    public Dictionary<(int x, int y), (int dx, int dy)> stepToward = new Dictionary<(int, int), (int, int)>();
+
+    public bool Reachable(int x, int y) => distance.ContainsKey((x, y));
+    public int Distance(int x, int y) => distance[(x, y)];
+    public (int dx, int dy) StepToward(int x, int y) => stepToward[(x, y)];
 }
 
 // ----------------------------------------------------------------------------

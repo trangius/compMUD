@@ -39,6 +39,14 @@ public static class World
     // re-attaches. Don't write components[Position] directly — see engine.spatial-index.md.
     private static Dictionary<(int, int), List<int>> spatialIndex = new Dictionary<(int, int), List<int>>();
 
+    // Per-tick flow-field cache — one precomputed "distance and direction to
+    // nearest X" map per perception target, shared by every consumer that tick.
+    // Key is the selector that defines "X" (species spawn delegate for
+    // GetSpeciesFlowField; other lookups can use different key types). Cleared
+    // at the top of Tick so positions go stale at a tick boundary, never
+    // mid-tick. See GetSpeciesFlowField below.
+    private static Dictionary<object, FlowField> flowFieldCache = new Dictionary<object, FlowField>();
+
     public static int mapWidth;
     public static int mapHeight;
     public static int tickCount;
@@ -67,6 +75,7 @@ public static class World
         entities.Clear();
         components.Clear();
         spatialIndex.Clear();
+        flowFieldCache.Clear();
         tickCount = 0;
         messageLog.Clear();
     }
@@ -82,6 +91,11 @@ public static class World
     // ----------------------------------------------------------------------------
     public static void Tick()
     {
+        // Wipe last tick's flow-field scratchpad. Entries are positional maps
+        // built from creature positions at the moment of the cache miss; they
+        // go stale the instant anyone moves.
+        flowFieldCache.Clear();
+
         // Pass 1: gated behavior dispatch
         foreach (int id in AllWithComponent<Behaviors>())
         {
@@ -416,5 +430,35 @@ public static class World
             if (list.Count == 0)
                 spatialIndex.Remove(key);
         }
+    }
+
+    // ----------------------------------------------------------------------------
+    // Get this tick's flow field seeded from every cell holding an entity of
+    // the given species. First caller computes; subsequent callers reuse —
+    // every wolf hunting rabbits asks the same question, so one flood covers
+    // the whole pack.
+    //
+    // Cache miss: iterate all Species-bearing entities, pick the ones whose
+    // spawn delegate matches, collect their Positions, flood once. Seed cells
+    // themselves are Solid (the creatures ARE the seeds) but MultiSourceBFS
+    // exempts seeds from the passability check.
+    // ----------------------------------------------------------------------------
+    public static FlowField GetSpeciesFlowField(Func<int, int, int> spawn)
+    {
+        if (flowFieldCache.TryGetValue(spawn, out FlowField? cached)) return cached;
+
+        // Collect every position where this species sits.
+        List<(int x, int y)> seeds = new List<(int, int)>();
+        foreach (int id in AllWithComponent<Species>())
+        {
+            if (GetComponent<Species>(id).spawn != spawn) continue;
+            if (!HasComponent<Position>(id)) continue;
+            Position p = GetComponent<Position>(id);
+            seeds.Add((p.X, p.Y));
+        }
+
+        FlowField fresh = Algorithms.MultiSourceBFS(seeds, CanCreatureBeHere);
+        flowFieldCache[spawn] = fresh;
+        return fresh;
     }
 }

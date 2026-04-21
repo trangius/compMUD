@@ -79,7 +79,7 @@ public static class Archetypes
         World.AttachComponent(e, new Diet(Resources.Meat, Resources.Pelt) { hungerThreshold = 0.9 });
         World.AttachComponent(e, new Behaviors(
             new ReturnToForestBehavior(),
-            new HuntBehavior(),
+            new HuntBehavior(rng),
             new FeedBehavior(rng),
             new WanderBehavior(rng)
         ));
