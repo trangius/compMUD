@@ -1,16 +1,16 @@
 # Scheduler
 
-A scheduler paces an entity's `Behaviors` dispatch. Effects run on a
+A scheduler paces an entity's [`Behaviors`](../Engine/Behaviors/Behavior.cs#L28) dispatch. Effects run on a
 different schedule — wall-clock, every tick, regardless of pace (see
 `engine.tick.md`).
 
 Two concrete scheduler types, picked per archetype to make the statted /
 simpleton split visible in code:
 
-- **`AgilityPaced`** — for statted creatures. Period comes from
-  `Stats.Agility` via `StatMath.ActionPeriod(id)`, recomputed at each
+- **[`AgilityPaced`](../Engine/Scheduler.cs#L33)** — for statted creatures. Period comes from
+  [`Stats.Agility`](../Engine/Stats/Stats.cs#L16) via [`StatMath.ActionPeriod(id)`](../Engine/Stats/StatMath.cs#L39), recomputed at each
   reschedule. Buffs to Agility take effect on the very next action.
-- **`FixedPaced`** — for simpletons (bushes, future grass, door tickers).
+- **[`FixedPaced`](../Engine/Scheduler.cs#L68)** — for simpletons (bushes, future grass, door tickers).
   Period is a literal field, set at archetype time.
 
 ```csharp
@@ -25,12 +25,12 @@ public class AgilityPaced : IScheduler { ... }           // period from Stats.Ag
 public class FixedPaced   : IScheduler { public int period; ... }
 ```
 
-`Scheduling.Get(id)` returns whichever is attached, or `null` if the
+[`Scheduling.Get(id)`](../Engine/Scheduler.cs#L99) returns whichever is attached, or `null` if the
 entity isn't on any schedule (terrain, corpses, event spawners).
 
 ## How the dispatcher uses it
 
-In Pass 1 of `World.Tick`, for each entity with `Behaviors`:
+In Pass 1 of [`World.Tick`](../Engine/World.cs#L67), for each entity with `Behaviors`:
 
 ```csharp
 IScheduler? sched = Scheduling.Get(id);
@@ -57,21 +57,21 @@ One consequence to know for tuning: slower entities need larger
 
 ## Baby entities
 
-When a scheduler is attached, its `OnAttach` hook sets
+When a scheduler is attached, its [`OnAttach`](../Engine/Scheduler.cs#L43) hook sets
 `NextActTick = World.tickCount + period`. So a newly spawned entity
 (breeding baby, raid wolf, vegetation sprout) waits one full period
 before its first action — same pacing as any later action. Without this,
 `NextActTick` would default to `0`, and any mid-game spawn would get a
 free action on the very next tick regardless of how slow it is.
 
-`AgilityPaced.OnAttach` reads the period via `StatMath.ActionPeriod(id)`,
-which requires `Stats` to already be on the entity — archetypes attach
+[`AgilityPaced.OnAttach`](../Engine/Scheduler.cs#L43) reads the period via `StatMath.ActionPeriod(id)`,
+which requires [`Stats`](../Engine/Stats/Stats.cs#L13) to already be on the entity — archetypes attach
 `Stats` before `AgilityPaced` for this reason.
 
 ## Varied action cost
 
-Not every action takes the same wall-clock time. `IBehavior.Act` returns
-an `int` cost; `Reschedule` multiplies by it when pushing `NextActTick`
+Not every action takes the same wall-clock time. [`IBehavior.Act`](../Engine/Behaviors/Behavior.cs#L24) returns
+an `int` cost; [`Reschedule`](../Engine/Scheduler.cs#L60) multiplies by it when pushing `NextActTick`
 forward:
 
 ```
@@ -83,7 +83,7 @@ mating, eating) returns a larger cost, which delays the creature's next
 turn proportionally.
 
 **Cost is dynamic per-action, not a property of the behavior.** The same
-`HuntBehavior` returns a small cost for a step and a larger cost for a
+[`HuntBehavior`](../Engine/Behaviors/Hunt.cs#L60) returns a small cost for a step and a larger cost for a
 bite. Return the cost from `Act`; don't declare it as a static property.
 
 For the current cost per action, read each behavior's `Act` — the number

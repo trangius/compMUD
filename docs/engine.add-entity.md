@@ -19,25 +19,25 @@ Ask for each aspect of the new thing:
 ## Step 2 — Create the files that don't exist yet
 
 **New State components**: file-per-feature. If the state is used by a
-behavior, put both in the same file in `Engine/Behaviors/`. If it's
-cross-cutting (like `Species`), give it its own file at `Engine/`.
+behavior, put both in the same file in [`Engine/Behaviors/`](../Engine/Behaviors). If it's
+cross-cutting (like [`Species`](../Engine/Species.cs#L8)), give it its own file at [`Engine/`](../Engine).
 
 **New Behaviors**: one class per behavior, in `Engine/Behaviors/Foo.cs`.
-Implement `IBehavior` — fields for cached target info, `Priority` property,
-`WouldAct(int id)`, and `int Act(int id)`. `Act` returns the action's
+Implement [`IBehavior`](../Engine/Behaviors/Behavior.cs#L9) — fields for cached target info, [`Priority`](../Engine/Behaviors/Behavior.cs#L13) property,
+[`WouldAct(int id)`](../Engine/Behaviors/Behavior.cs#L17), and [`int Act(int id)`](../Engine/Behaviors/Behavior.cs#L24). `Act` returns the action's
 cost — a step is the baseline; return a larger multiplier to make the
 action take longer before the entity's next turn (see
-`engine.scheduler.md`).
+[engine.scheduler.md](engine.scheduler.md)).
 
 **New Effects**: `Engine/Effects/Foo.cs` (or beside the behavior it pairs
-with — judgment call). Implement `IEffect` — `Apply(int id)`.
+with — judgment call). Implement [`IEffect`](../Engine/Effects/Effect.cs#L10) — `Apply(int id)`.
 
 **New Categories**: add an instance to the relevant registry singleton
-(`Resources`, future `Materials`, etc.).
+([`Resources`](../Engine/Yields.cs#L21), future `Materials`, etc.).
 
 ## Step 3 — Add the archetype
 
-In `Engine/Archetypes.cs`, add a `Create*` static method. Pattern:
+In [`Engine/Archetypes.cs`](../Engine/Archetypes.cs), add a `Create*` static method. Pattern:
 
 ```csharp
 // ----------------------------------------------------------------------------
@@ -82,36 +82,36 @@ public static int CreateHawk(int x, int y)
 
 The returned `int e` *is* the entity. Store it if you need to reference
 it later; otherwise discard. Vision range and action period aren't
-separate components — `StatMath.VisionRange(id)` reads `Stats.Perception`
-and `StatMath.ActionPeriod(id)` reads `Stats.Agility`. Change the stats
+separate components — [`StatMath.VisionRange(id)`](../Engine/Stats/StatMath.cs#L29) reads [`Stats.Perception`](../Engine/Stats/Stats.cs#L17)
+and [`StatMath.ActionPeriod(id)`](../Engine/Stats/StatMath.cs#L39) reads [`Stats.Agility`](../Engine/Stats/Stats.cs#L16). Change the stats
 and the derived values follow.
 
 ## Step 4 — Wire into an area
 
-In `Engine/Areas/HomeArea.cs` (or a new area), call the new archetype where
-you want it to appear. For creature populations, use `World.FindCell` with
+In [`Engine/Areas/HomeArea.cs`](../Engine/Areas/HomeArea.cs) (or a new area), call the new archetype where
+you want it to appear. For creature populations, use [`World.FindCell`](../Engine/World.cs#L370) with
 any predicate you want to enforce (open ground, min distance from existing
 entities, etc.).
 
 ## Step 5 — Update docs
 
-Consult `README.md` for which doc(s) to update:
+Consult [`README.md`](../README.md) for which doc(s) to update:
 
-- New archetype → `engine.filestructure.md` (if a new file), `engine.add-entity.md` (this file — add to examples if notable).
-- New predator-prey pair → `engine.species.md`.
-- New behavior → `engine.five-buckets.md` (examples), plus its own mention.
+- New archetype → [`engine.filestructure.md`](engine.filestructure.md) (if a new file), `engine.add-entity.md` (this file — add to examples if notable).
+- New predator-prey pair → [`engine.species.md`](engine.species.md).
+- New behavior → [`engine.five-buckets.md`](engine.five-buckets.md) (examples), plus its own mention.
 
 ## Common mistakes
 
-- **Forgetting `Species`**. If anything asks "is this my kind?" (mating,
+- **Forgetting [`Species`](../Engine/Species.cs#L8)**. If anything asks "is this my kind?" (mating,
   hunting, clustering), the entity needs a `Species` component. Bushes
   without one won't cluster-cap; wolves without one can't be targeted by
   predator sets.
-- **Forgetting a scheduler.** Without `AgilityPaced` or `FixedPaced`, the
+- **Forgetting a scheduler.** Without [`AgilityPaced`](../Engine/Scheduler.cs#L33) or [`FixedPaced`](../Engine/Scheduler.cs#L68), the
   entity acts every global tick — fine for "lightspeed" creatures, usually
   wrong for anything else. For `AgilityPaced`, remember to attach `Stats`
   first so its `OnAttach` can read `Agility`.
-- **Putting logic in a manager class.** See `engine.composition.md`. Logic
+- **Putting logic in a manager class.** See [engine.composition.md](engine.composition.md). Logic
   goes on the component that owns the concern, or in the behavior paired
   with it — not in a class that iterates entities from outside.
 - **Reusing an existing component for a new concept.** If the new meaning is

@@ -5,28 +5,28 @@ The engine is **8-connected** — every move (step, flee, flood, spread) conside
 
 ## The core helpers
 
-All in `Engine/Spatial/Spatial.cs` (`MovementHelper`):
+All in [`Engine/Spatial/Spatial.cs`](../Engine/Spatial/Spatial.cs) ([`MovementHelper`](../Engine/Spatial/Spatial.cs#L34)):
 
-- **`TryMove(id, dx, dy)`** — one-step primitive. Target cell must have a
-  `Walkable` occupant and no `Solid`. Returns bool (succeeded / blocked).
+- **[`TryMove(id, dx, dy)`](../Engine/Spatial/Spatial.cs#L48)** — one-step primitive. Target cell must have a
+  [`Walkable`](../Engine/Spatial/Spatial.cs#L25) occupant and no [`Solid`](../Engine/Spatial/Spatial.cs#L29). Returns bool (succeeded / blocked).
   Works with any `(dx, dy)` — cardinal, diagonal, or zero.
-- **`MoveToward(id, pos, tx, ty)`** — step toward a target. Tries the diagonal
+- **[`MoveToward(id, pos, tx, ty)`](../Engine/Spatial/Spatial.cs#L81)** — step toward a target. Tries the diagonal
   step first when both axes want progress (that IS the shortest path on a
   uniform-cost 8-grid). If diagonal is blocked, falls through to the bigger
   single-axis move, then the other single-axis. No randomness; deterministic.
-- **`MoveAwayFrom(id, pos, threatX, threatY, rng)`** — pick the passable
+- **[`MoveAwayFrom(id, pos, threatX, threatY, rng)`](../Engine/Spatial/Spatial.cs#L113)** — pick the passable
   neighbor that maximizes squared-Euclidean distance from the threat. Tries
   all 8, picks best; ties break randomly via the supplied rng. Without the
   random tiebreak, many creatures fleeing one threat all picked the same
   first-in-array direction and lined up in parallel. Cardinal, diagonal —
   whatever gets farthest. Fixes the old "run to wall, stop" bug: if east
   is blocked, picks a diagonal or the other axis.
-- **`Wander(id, rng)`** — random step. Picks one of 8 neighbors uniformly; if
+- **[`Wander(id, rng)`](../Engine/Spatial/Spatial.cs#L151)** — random step. Picks one of 8 neighbors uniformly; if
   blocked, stays put. Caller supplies rng for determinism.
 
 ## BFS pathfinding
 
-`Engine/Spatial/Algorithms.cs` holds the generic flood-fill:
+[`Engine/Spatial/Algorithms.cs`](../Engine/Spatial/Algorithms.cs) holds the generic flood-fill:
 
 ```csharp
 BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable, rng);
@@ -36,7 +36,7 @@ BFSResult bfs = Algorithms.BFS(startX, startY, maxRange, isPassable, rng);
 ```
 
 `isPassable` is supplied by the caller — that's the extension point for
-swimmer / climber creatures later. Today everyone passes `World.CanCreatureBeHere`
+swimmer / climber creatures later. Today everyone passes [`World.CanCreatureBeHere`](../Engine/World.cs#L355)
 (has Walkable, no Solid).
 
 The optional `rng` shuffles neighbor-iteration order once per call. BFS still
@@ -54,21 +54,21 @@ diagonals behave naturally in movement and BFS alike.
 
 | Behavior | Target discovery | Stepping |
 |---|---|---|
-| `FeedBehavior` | BFS — scans reached cells for edibles | `TryMove` with cached first-step |
-| `HuntBehavior` | BFS — scans reachable neighbors of prey | `TryMove` with cached first-step |
-| `ReturnToForestBehavior` | BFS — nearest reachable `Tree` | `TryMove` with cached first-step |
-| `RunFromPredatorBehavior` | `FindNearestEntity` (Euclidean circle) | `MoveAwayFrom` (one-step greedy) |
-| `BreedBehavior` | `FindNearestEntity` | `MoveToward` (one-step greedy) |
-| `WanderBehavior` | — | `Wander` (uniform random) |
+| [`FeedBehavior`](../Engine/Behaviors/Feeding.cs#L43) | BFS — scans reached cells for edibles | `TryMove` with cached first-step |
+| [`HuntBehavior`](../Engine/Behaviors/Hunt.cs#L60) | BFS — scans reachable neighbors of prey | `TryMove` with cached first-step |
+| [`ReturnToForestBehavior`](../Engine/Behaviors/WolfRaid.cs#L17) | BFS — nearest reachable [`Tree`](../Engine/Tree.cs#L5) | `TryMove` with cached first-step |
+| [`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs#L9) | [`FindNearestEntity`](../Engine/World.cs#L310) (Euclidean circle) | `MoveAwayFrom` (one-step greedy) |
+| [`BreedBehavior`](../Engine/Behaviors/Breeding.cs#L15) | `FindNearestEntity` | `MoveToward` (one-step greedy) |
+| [`WanderBehavior`](../Engine/Behaviors/Wander.cs#L4) | — | `Wander` (uniform random) |
 
 ## Vision vs reachability
 
-`StatMath.VisionRange(id)` returns one number (= `Stats.Perception`), but two
+[`StatMath.VisionRange(id)`](../Engine/Stats/StatMath.cs#L29) returns one number (= [`Stats.Perception`](../Engine/Stats/Stats.cs#L17)), but two
 functions interpret it differently:
 
-- **`FindNearestEntity(x, y, range, filter)`** — scans a `[-range, +range]²`
+- **[`FindNearestEntity(x, y, range, filter)`](../Engine/World.cs#L310)** — scans a `[-range, +range]²`
   box, filters by `dx² + dy² ≤ range²`. That's a **Euclidean disk**.
-- **`Algorithms.BFS(x, y, maxRange, ...)`** — flood of 8-connected steps up
+- **[`Algorithms.BFS(x, y, maxRange, ...)`](../Engine/Spatial/Algorithms.cs#L28)** — flood of 8-connected steps up
   to `maxRange`. That's a **Chebyshev square**.
 
 Consequences:
@@ -86,7 +86,7 @@ Consequences:
 Manhattan ≤ 1. Used by:
 
 - `HuntBehavior` — bite when prey is Chebyshev-adjacent.
-- `BreedBehavior.FindAdjacentMate` — mate is on any of the 8 neighbors.
+- [`BreedBehavior.FindAdjacentMate`](../Engine/Behaviors/Breeding.cs#L133) — mate is on any of the 8 neighbors.
 - `ReturnToForestBehavior` — a tree on the same cell or next-door.
 
 If you're writing a new proximity check, prefer `Math.Max(Math.Abs(dx), Math.Abs(dy))`.

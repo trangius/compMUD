@@ -1,7 +1,7 @@
 # Console frontend
 
-Text-grid frontend for `Engine/`. Prints the world as ASCII, reads commands on
-stdin, calls `World.Tick()` on demand. Use it to drive the engine tick by tick
+Text-grid frontend for [`Engine/`](../Engine). Prints the world as ASCII, reads commands on
+stdin, calls [`World.Tick()`](../Engine/World.cs#L67) on demand. Use it to drive the engine tick by tick
 and inspect entity state at specific cells.
 
 ## Running
@@ -35,7 +35,7 @@ dotnet run --project Console
 
 ## Sprite legend
 
-- `.` grass (Walkable)
+- `.` grass ([`Walkable`](../Engine/Spatial/Spatial.cs#L25))
 - `#` wall
 - `~` water
 - `T` tree
@@ -45,7 +45,7 @@ dotnet run --project Console
 - `%` corpse (pink — fresh, still has meat yields)
 - `%` bones (gray — meat stripped; pelt and/or bone yields remain)
 
-Rendering picks the top-layer sprite per cell; layers are set on each archetype's `Appearance`.
+Rendering picks the top-layer sprite per cell; layers are set on each archetype's [`Appearance`](../Engine/EntityInfo.cs#L11).
 
 ## When writing engine changes
 

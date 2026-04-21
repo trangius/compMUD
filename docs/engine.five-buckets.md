@@ -8,11 +8,11 @@ concept; don't smoosh.
 
 ## 1. Entities — world objects
 
-- Have `Position`, participate in ticks, can be destroyed.
+- Have [`Position`](../Engine/Spatial/Spatial.cs#L9), participate in ticks, can be destroyed.
 - Examples: rabbit, wolf, corpse, bush, tree, grass, wall, arrow-in-flight,
   wolf-raid-spawner (an entity with no position but still a live integer id).
 - **Pattern**: `int id` + components. Built by an archetype `Create*` function
-  in `Archetypes.cs`.
+  in [`Archetypes.cs`](../Engine/Archetypes.cs).
 
 ---
 
@@ -20,21 +20,21 @@ concept; don't smoosh.
 
 - Marker components (often empty classes) attached to one entity. If the state
   carries information, add fields; otherwise leave empty.
-- Examples: `Walkable`, `Solid`, `Corpse`, `Tree`, `RaidingWolf`, `Stats`,
-  `Melee`, `Grappled`.
+- Examples: [`Walkable`](../Engine/Spatial/Spatial.cs#L25), [`Solid`](../Engine/Spatial/Spatial.cs#L29), [`Corpse`](../Engine/Stats/Health.cs#L24), [`Tree`](../Engine/Tree.cs#L5), [`RaidingWolf`](../Engine/Behaviors/WolfRaid.cs#L6), [`Stats`](../Engine/Stats/Stats.cs#L13),
+  [`Melee`](../Engine/Behaviors/Hunt.cs#L29), [`Grappled`](../Engine/Behaviors/Grapple.cs#L8).
 - **Pattern**: `public class Sleeping { }` or with fields. Checked via
-  `World.HasComponent<T>(id)`, read via `World.GetComponent<T>(id)`.
+  [`World.HasComponent<T>(id)`](../Engine/World.cs#L220), read via [`World.GetComponent<T>(id)`](../Engine/World.cs#L228).
 
 ---
 
 ## 3. Behaviors — active logic per tick: *pick one*
 
-- `IBehavior` implementations. An entity's `Behaviors` component holds a list
-  of them. The dispatcher asks each `WouldAct`, runs only the highest-priority
-  winner's `Act`. One action per entity per tick.
-- Examples: `EscapeGrappleBehavior`, `RunFromPredatorBehavior`,
-  `HuntBehavior`, `FeedBehavior`, `BreedBehavior`, `RestBehavior`,
-  `WanderBehavior`, `ReturnToForestBehavior`; future `AttackBehavior`,
+- [`IBehavior`](../Engine/Behaviors/Behavior.cs#L9) implementations. An entity's [`Behaviors`](../Engine/Behaviors/Behavior.cs#L28) component holds a list
+  of them. The dispatcher asks each [`WouldAct`](../Engine/Behaviors/Behavior.cs#L17), runs only the highest-priority
+  winner's [`Act`](../Engine/Behaviors/Behavior.cs#L24). One action per entity per tick.
+- Examples: [`EscapeGrappleBehavior`](../Engine/Behaviors/Grapple.cs#L53), [`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs#L9),
+  [`HuntBehavior`](../Engine/Behaviors/Hunt.cs#L60), [`FeedBehavior`](../Engine/Behaviors/Feeding.cs#L43), [`BreedBehavior`](../Engine/Behaviors/Breeding.cs#L15), [`RestBehavior`](../Engine/Behaviors/Rest.cs#L6),
+  [`WanderBehavior`](../Engine/Behaviors/Wander.cs#L4), [`ReturnToForestBehavior`](../Engine/Behaviors/WolfRaid.cs#L17); future `AttackBehavior`,
   `CastSpellBehavior`.
 - **Pattern**:
   ```csharp
@@ -57,12 +57,12 @@ concept; don't smoosh.
 
 ## 4. Effects — passive per-tick updates: *run all*
 
-- `IEffect` implementations, in an entity's `Effects` component list. Every
+- [`IEffect`](../Engine/Effects/Effect.cs#L10) implementations, in an entity's [`Effects`](../Engine/Effects/Effect.cs#L16) component list. Every
   effect runs every tick; no competition, no priority. Wall-clock — fires
   regardless of the entity's pace.
 - Use for drain / decay / regen / status / raid spawning — anything that
   happens *to* the entity automatically rather than being a decision it makes.
-- Examples: `EnergyDrainEffect`, `WolfRaidEffect`; future `Poisoned`,
+- Examples: [`EnergyDrainEffect`](../Engine/Stats/Energy.cs#L31), [`WolfRaidEffect`](../Engine/Behaviors/WolfRaid.cs#L97); future `Poisoned`,
   `Burning`, `Aging`, cooldown tickers, mana regen.
 - **Pattern**: `public class SomeEffect : IEffect { public void Apply(int id) { ... } }`.
 
@@ -72,8 +72,8 @@ concept; don't smoosh.
 
 - Singleton instances of a category class. No position, no lifecycle. Many
   entities point at the same instance.
-- Examples: `Resources.Meat`, `Resources.Berry`, `Resources.Pelt`,
-  `Resources.Bone`; future `Materials.Steel`, `DamageTypes.Fire`,
+- Examples: [`Resources.Meat`](../Engine/Yields.cs#L23), [`Resources.Berry`](../Engine/Yields.cs#L24), [`Resources.Pelt`](../Engine/Yields.cs#L25),
+  [`Resources.Bone`](../Engine/Yields.cs#L26); future `Materials.Steel`, `DamageTypes.Fire`,
   `Rarities.Uncommon`.
 - **Pattern**:
   ```csharp
@@ -107,9 +107,9 @@ When adding a concept:
 
 A poisoned rabbit corpse is:
 - An **Entity** (the body, a new int id).
-- With **States**: `Corpse` (marker), `Walkable`, `Yields { [meat, pelt, bones] }`.
+- With **States**: `Corpse` (marker), `Walkable`, [`Yields`](../Engine/Yields.cs#L52) `{ [meat, pelt, bones] }`.
 - With an **Effect**: `Poisoned` that ticks down the entity's HP.
-- Referencing a **Category**: each `Yield.category` points at `Resources.Meat`,
+- Referencing a **Category**: each [`Yield.category`](../Engine/Yields.cs#L35) points at `Resources.Meat`,
   `Resources.Pelt`, or `Resources.Bone`.
 - No **Behavior** — it's not choosing anything.
 

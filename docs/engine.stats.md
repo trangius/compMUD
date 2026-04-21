@@ -18,7 +18,7 @@ public class Stats
 }
 ```
 
-One shared schema. **Every creature with `Stats` has every field.** Deliberate
+One shared schema. **Every creature with [`Stats`](../Engine/Stats/Stats.cs#L13) has every field.** Deliberate
 — the distinction between "statted" (rabbits, wolves, future humans) and
 "not statted" (trees, bushes, walls) is binary. A behavior that reads stats
 can trust they're all there. New fields default to a low baseline so adding
@@ -27,9 +27,9 @@ a field doesn't require touching every archetype.
 ## Stats vs. resources
 
 Separate concepts:
-- **Stats** (`Strength`, `Agility`, ...) — static base values. Change only
+- **Stats** ([`Strength`](../Engine/Stats/Stats.cs#L15), [`Agility`](../Engine/Stats/Stats.cs#L16), ...) — static base values. Change only
   when a level-up / buff system edits them.
-- **Resources** (`Health`, `Energy`, future `Money`) — stateful values with
+- **Resources** ([`Health`](../Engine/Stats/Health.cs#L7), [`Energy`](../Engine/Stats/Energy.cs#L7), future `Money`) — stateful values with
   current/max. Drain, refill, bound. They live in their own components.
 
 If you're about to add a new field, ask: does it have a current/max? Does
@@ -38,26 +38,26 @@ it drain? Then it's a resource, not a stat.
 ## Derived abilities — `StatMath`
 
 Stat-derived helpers that are generically about "reading a stat, returning
-a value" live in `Engine/Stats/StatMath.cs`:
+a value" live in [`Engine/Stats/StatMath.cs`](../Engine/Stats/StatMath.cs):
 
-- `VisionRange(id)` — derived from `Perception`. Used wherever a creature
+- [`VisionRange(id)`](../Engine/Stats/StatMath.cs#L29) — derived from `Perception`. Used wherever a creature
   asks "how far can I see?".
-- `ActionPeriod(id)` — derived from `Agility`. Higher Agility means a lower
-  period means faster action. Used by `AgilityPaced.Reschedule`.
+- [`ActionPeriod(id)`](../Engine/Stats/StatMath.cs#L39) — derived from `Agility`. Higher Agility means a lower
+  period means faster action. Used by [`AgilityPaced.Reschedule`](../Engine/Scheduler.cs#L60).
 
-See `StatMath.cs` for the exact formulas; they are plain arithmetic on one
+See [`StatMath.cs`](../Engine/Stats/StatMath.cs) for the exact formulas; they are plain arithmetic on one
 stat each.
 
 **Capability-specific formulas live on the capability's component.** Not
 in `StatMath`:
 
-- `Melee.Damage(atkId, defId)` reads the attacker's `Strength` and the
-  defender's `Toughness`. The `Melee` component owns "how hard does my
+- [`Melee.Damage(atkId, defId)`](../Engine/Behaviors/Hunt.cs#L38) reads the attacker's `Strength` and the
+  defender's `Toughness`. The [`Melee`](../Engine/Behaviors/Hunt.cs#L29) component owns "how hard does my
   strike land?" because it's a property of the attacker-vs-defender
-  pairing. Toughness lives here, not in `Health.TakeDamage`, so internal
+  pairing. Toughness lives here, not in [`Health.TakeDamage`](../Engine/Stats/Health.cs#L19), so internal
   damage sources (starvation) aren't soaked.
-- `Grappled.EscapeChance(victimId)` reads the victim's `Agility` against
-  the attacker's `Strength`. The `Grappled` state owns the escape formula
+- [`Grappled.EscapeChance(victimId)`](../Engine/Behaviors/Grapple.cs#L33) reads the victim's `Agility` against
+  the attacker's `Strength`. The [`Grappled`](../Engine/Behaviors/Grapple.cs#L8) state owns the escape formula
   because it's an interaction between specifically-named attacker and
   victim entities.
 
@@ -72,7 +72,7 @@ extract `CombatMath` / `MovementMath` / `PerceptionMath`. Not before.
 
 ## Enforcement
 
-Every `StatMath` method starts with `Require(id)` — fetch Stats, throw a
+Every `StatMath` method starts with [`Require(id)`](../Engine/Stats/StatMath.cs#L17) — fetch Stats, throw a
 descriptive `InvalidOperationException` if absent. Any stat-dependent code
 path funnels through this helper, so an archetype that forgets to attach
 `Stats` to a creature fails loudly the first time that creature tries to
@@ -92,5 +92,5 @@ the tick some behavior would use it; give it a low default on the
 
 ## Related
 
-- `docs/engine.scheduler.md` — how `AgilityPaced` uses `ActionPeriod`.
-- `docs/engine.movement.md` — how `VisionRange` drives BFS range.
+- [`docs/engine.scheduler.md`](engine.scheduler.md) — how `AgilityPaced` uses `ActionPeriod`.
+- [`docs/engine.movement.md`](engine.movement.md) — how `VisionRange` drives BFS range.

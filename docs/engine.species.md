@@ -1,8 +1,8 @@
 # Species identity
 
 **An entity's species is its archetype spawn delegate.** Two entities are
-the same species if-and-only-if their `Species.spawn` points at the same
-method (e.g. both point at `Archetypes.CreateRabbit`). Comparison is
+the same species if-and-only-if their [`Species.spawn`](../Engine/Species.cs#L10) points at the same
+method (e.g. both point at [`Archetypes.CreateRabbit`](../Engine/Archetypes.cs#L18)). Comparison is
 reference equality (pointer equality).
 
 No enum. No string tag. No species registry. The method itself is the ID.
@@ -37,7 +37,7 @@ public class Species
 ```csharp
 if (otherSpecies.spawn == mySpecies.spawn)  // same archetype → same species
 ```
-Used in `BreedBehavior.FindAdjacentMate`.
+Used in [`BreedBehavior.FindAdjacentMate`](../Engine/Behaviors/Breeding.cs#L133).
 
 **Predation — set membership.** "Are you on my hunt list?"
 ```csharp
@@ -48,16 +48,16 @@ public class Predator
 }
 ```
 Wolf's `new Predator(CreateRabbit)` gives it a hunt set of one species. Same
-shape as `Diet.Accepts(resource)` — set membership.
+shape as [`Diet.Accepts(resource)`](../Engine/Behaviors/Feeding.cs#L24) — set membership.
 
 ## Where species identity shows up
 
-- **`Species` component** on an entity declares which species it is.
-- **`Breeding.FindAdjacentMate`** — match same-species neighbors.
-- **`Breeding.globalCap`** — count world-wide same-species via `Species.CountAll`.
-- **`Vegetation.HasRoom`** — count local same-species via `Species.CountInRadius`.
-- **`Predator.preySpecies`** — which species this entity hunts.
-- **`RunFromPredatorBehavior`** — prey finds a predator whose `preySpecies` contains
+- **[`Species`](../Engine/Species.cs#L8) component** on an entity declares which species it is.
+- **[`BreedBehavior.FindAdjacentMate`](../Engine/Behaviors/Breeding.cs#L133)** — match same-species neighbors.
+- **[`Breeding.globalCap`](../Engine/Behaviors/Breeding.cs#L11)** — count world-wide same-species via [`Species.CountAll`](../Engine/Species.cs#L16).
+- **[`Vegetation.HasRoom`](../Engine/Behaviors/Vegetation.cs#L90)** — count local same-species via [`Species.CountInRadius`](../Engine/Species.cs#L32).
+- **[`Predator.preySpecies`](../Engine/Behaviors/Hunt.cs#L9)** — which species this entity hunts.
+- **[`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs#L9)** — prey finds a predator whose `preySpecies` contains
   its own species.
 
 Every place that asks "who's my kind?" or "who do I care about?" goes through

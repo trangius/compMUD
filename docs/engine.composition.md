@@ -11,30 +11,30 @@ Everything below follows from it.
 - **Components carry behavior.** Logic for a concern lives on the
   component that represents the concern. Not in a manager class, not in
   free functions that scan entities from outside.
-- **Behaviors act directly.** `RunFromPredatorBehavior` moves the entity
-  by calling `MovementHelper.MoveAwayFrom`. If a behavior decides
+- **Behaviors act directly.** [`RunFromPredatorBehavior`](../Engine/Behaviors/RunFromPredator.cs#L9) moves the entity
+  by calling [`MovementHelper.MoveAwayFrom`](../Engine/Spatial/Spatial.cs#L113). If a behavior decides
   something should happen, it happens in the same tick, by the behavior
   itself. No queue, no deferred resolution, no central class that turns
   requests into effects.
-- **Entities pick one action per tick.** Every entity with `Behaviors`
+- **Entities pick one action per tick.** Every entity with [`Behaviors`](../Engine/Behaviors/Behavior.cs#L28)
   has a list of them. On the entity's turn, the dispatcher asks each
   behavior whether it wants to act and runs the highest-priority willing
   one. Exactly one action runs; the rest wait for next tick. The rule
   is enforced structurally — the dispatcher loop is the only path that
   calls behaviors.
-- **A component and its behavior live in the same file.** `Hunt.cs`
-  holds `Predator` (the marker that says "I hunt"), `Melee` (the
-  component that owns the bite-damage formula), and `HuntBehavior`
+- **A component and its behavior live in the same file.** [`Hunt.cs`](../Engine/Behaviors/Hunt.cs)
+  holds [`Predator`](../Engine/Behaviors/Hunt.cs#L7) (the marker that says "I hunt"), [`Melee`](../Engine/Behaviors/Hunt.cs#L29) (the
+  component that owns the bite-damage formula), and [`HuntBehavior`](../Engine/Behaviors/Hunt.cs#L60)
   (what they do on a turn). One file per feature.
-- **Single-instance classes are static.** There is one `World`, so
+- **Single-instance classes are static.** There is one [`World`](../Engine/World.cs#L26), so
   `World` is a static class. No `new World()`, no instance passed
-  around. Same for `Archetypes` and `Algorithms`.
+  around. Same for [`Archetypes`](../Engine/Archetypes.cs#L6) and [`Algorithms`](../Engine/Spatial/Algorithms.cs#L8).
 - **Entities are integer ids with components attached dynamically.**
   This is what lets a rabbit gain a `Weapon` component at runtime by
   picking up a sword, or lose `RunFromPredator` from a courage buff.
   Composition is mutable.
 - **One source of truth.** Don't cache derived flags like `IsHungry`.
-  Let a behavior that needs to know ask `Diet.IsHungry(energy)` and
+  Let a behavior that needs to know ask [`Diet.IsHungry(energy)`](../Engine/Behaviors/Feeding.cs#L33) and
   read the current numbers. A cached flag can drift out of sync with
   the source.
 - **No data-only classes.** A class that holds fields and nothing else
@@ -44,7 +44,7 @@ Everything below follows from it.
 
 ## The C# shape
 
-A rabbit is built by a factory function in `Archetypes.cs`:
+A rabbit is built by a factory function in [`Archetypes.cs`](../Engine/Archetypes.cs):
 
 ```csharp
 public static int CreateRabbit(int x, int y)

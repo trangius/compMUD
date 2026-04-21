@@ -2,7 +2,7 @@
 
 *(Placeholder — expand this when the GUI work picks up.)*
 
-MonoGame graphical frontend for `Engine/`. Same engine as the Console; different
+MonoGame graphical frontend for [`Engine/`](../Engine). Same engine as the Console; different
 presentation layer.
 
 ## Running
