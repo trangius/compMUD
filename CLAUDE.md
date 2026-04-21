@@ -68,6 +68,13 @@ You can pipe input for scripted runs.
   - Bad: *"This method searches for the nearest food entity within vision range"*
   - Bad: *"Execute harvesting behavior on the target Drops entity"*
 - Flag gotchas — things that would trip someone up or break if changed.
+- **No tuning numbers in comments.** Stat values, costs, cooldowns, thresholds,
+  pool sizes, capacities. The value lives at the `const` or field it's declared
+  on; the comment explains *why the number exists at all* and what changes if
+  you move it up or down. Quoting the number in the comment means updating two
+  places whenever it's tuned — and one of them will drift.
+  - Good: *"Portion cap — without it, one action would drain the whole stockpile"*
+  - Bad: *"Portion cap (400). Max Energy is 3000, so ~4 bites refill a starved hunter"*
 - For types in the five buckets, prefix the class comment with the bucket
   name: `// State: ...`, `// Behavior: ...`, `// Effect: ...`, `// Category: ...`.
   Makes taxonomy visible at a glance without adding interface plumbing.

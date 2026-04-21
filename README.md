@@ -58,8 +58,7 @@ said yes runs its `Act`. Exactly one action per entity per tick.
 
 **Pass two, effects.** For every entity with an `Effects` list, every
 effect runs. No priority, no competition. Drains, decays, and regens
-fire regardless of what the entity chose — which is why a creature
-cannot escape starvation by choosing not to eat.
+fire regardless of what the entity chose.
 
 ### The scheduler paces each entity
 
