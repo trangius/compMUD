@@ -56,6 +56,22 @@ public static class World
     }
 
     // ----------------------------------------------------------------------------
+    // Wipe the world back to empty so a frontend can rebuild a fresh area
+    // without restarting the process. Used by the Console bench harness to swap
+    // between StartingArea and StressArea in one session. Resets all the static
+    // state — entity ids, components, indexes, tick counter, log.
+    // ----------------------------------------------------------------------------
+    public static void Reset()
+    {
+        nextEntityId = 0;
+        entities.Clear();
+        components.Clear();
+        spatialIndex.Clear();
+        tickCount = 0;
+        messageLog.Clear();
+    }
+
+    // ----------------------------------------------------------------------------
     // Advance the world by one step. Two passes in order:
     //   1. Actions — each entity DUE this tick (per its IScheduler) picks ONE
     //      behavior and runs it. AgilityPaced derives its period from Stats;

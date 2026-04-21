@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Engine;
 
 // Sprite registry — maps spriteId to console glyph and color
@@ -14,11 +15,25 @@ Dictionary<string, (string glyph, ConsoleColor color)> sprites = new()
     ["bones"]   = ("%", ConsoleColor.Gray),
 };
 
-World.Initialize(60, 30);
-HomeArea.StartingArea();
-
-Console.WriteLine($"Map generated: {World.mapWidth}x{World.mapHeight}, {World.EntityCount} entities");
-Console.WriteLine("Commands: look, tick [n], status, log, info <x> <y>, quit");
+// Pick the area from argv. Default = StartingArea (the regular sandbox).
+// `dotnet run -- stress [rabbits] [wolves] [bushes]` builds a packed bench map
+// on a bigger grid for measuring tick cost.
+if (args.Length > 0 && args[0] == "stress")
+{
+    int sr = args.Length > 1 && int.TryParse(args[1], out int p1) ? p1 : 200;
+    int sw = args.Length > 2 && int.TryParse(args[2], out int p2) ? p2 : 50;
+    int sb = args.Length > 3 && int.TryParse(args[3], out int p3) ? p3 : 400;
+    World.Initialize(120, 60);
+    StressArea.Build(sr, sw, sb);
+    Console.WriteLine($"Stress area: {World.mapWidth}x{World.mapHeight}, {sr} rabbits, {sw} wolves, {sb} bushes, {World.EntityCount} entities total");
+}
+else
+{
+    World.Initialize(60, 30);
+    HomeArea.StartingArea();
+    Console.WriteLine($"Map generated: {World.mapWidth}x{World.mapHeight}, {World.EntityCount} entities");
+}
+Console.WriteLine("Commands: look, tick [n], bench <n>, stress [r] [w] [b], status, log, info <x> <y>, quit");
 Console.WriteLine();
 
 RenderMap(sprites);
@@ -51,6 +66,39 @@ while (true)
 
         Console.WriteLine($"Turn {World.tickCount}");
         RenderMap(sprites);
+    }
+    else if (command == "bench" && parts.Length >= 2)
+    {
+        // Time N ticks with no rendering between them. Reports total ms,
+        // ms/tick, ticks/sec, and final entity count so you can tell whether
+        // the population shifted during the run.
+        if (!int.TryParse(parts[1], out int benchTicks) || benchTicks <= 0)
+        {
+            Console.WriteLine("Usage: bench <ticks>");
+        }
+        else
+        {
+            int startEntities = World.EntityCount;
+            Stopwatch sw = Stopwatch.StartNew();
+            for (int i = 0; i < benchTicks; i++) World.Tick();
+            sw.Stop();
+            double ms = sw.Elapsed.TotalMilliseconds;
+            double msPerTick = ms / benchTicks;
+            double tps = benchTicks / sw.Elapsed.TotalSeconds;
+            Console.WriteLine($"Bench: {benchTicks} ticks in {ms:F1} ms — {msPerTick:F3} ms/tick — {tps:F0} ticks/sec");
+            Console.WriteLine($"  Entities: {startEntities} → {World.EntityCount}  (turn {World.tickCount})");
+        }
+    }
+    else if (command == "stress")
+    {
+        // Rebuild the world as a fresh stress map without restarting the binary.
+        int sr = parts.Length > 1 && int.TryParse(parts[1], out int p1) ? p1 : 200;
+        int sw = parts.Length > 2 && int.TryParse(parts[2], out int p2) ? p2 : 50;
+        int sb = parts.Length > 3 && int.TryParse(parts[3], out int p3) ? p3 : 400;
+        World.Reset();
+        World.Initialize(120, 60);
+        StressArea.Build(sr, sw, sb);
+        Console.WriteLine($"Stress area rebuilt: {sr} rabbits, {sw} wolves, {sb} bushes, {World.EntityCount} entities total");
     }
     else if (command == "status")
     {
