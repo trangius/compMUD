@@ -33,8 +33,12 @@ else
     HomeArea.StartingArea();
     Console.WriteLine($"Map generated: {World.mapWidth}x{World.mapHeight}, {World.EntityCount} entities");
 }
-Console.WriteLine("Commands: look, tick [n], bench <n>, stress [r] [w] [b], status, log, info <x> <y>, quit");
+Console.WriteLine("Commands: look, tick [n], bench <n>, stress [r] [w] [b], status, log, info <x> <y>, pursue <id> <x> <y> [priority], quit");
 Console.WriteLine();
+
+// Shared rng for dev/test commands that need one (e.g. pursue). Fixed seed
+// so scripted runs stay reproducible.
+Random devRng = new Random(1);
 
 RenderMap(sprites);
 
@@ -118,9 +122,29 @@ while (true)
         else
             Console.WriteLine("Usage: info <x> <y>");
     }
+    else if (command == "pursue" && parts.Length >= 4)
+    {
+        // Dev hook — attach a NavigatePursuit to any entity so we can watch
+        // the pursuit layer run. Optional fourth arg overrides the default
+        // priority (3 — about idle-wander level; Run/Feed/etc preempt naturally).
+        if (!int.TryParse(parts[1], out int pId) || !int.TryParse(parts[2], out int pX) || !int.TryParse(parts[3], out int pY))
+        {
+            Console.WriteLine("Usage: pursue <id> <x> <y> [priority]");
+        }
+        else if (!World.EntityExists(pId))
+        {
+            Console.WriteLine($"Entity {pId} doesn't exist.");
+        }
+        else
+        {
+            int prio = parts.Length >= 5 && int.TryParse(parts[4], out int p) ? p : 3;
+            World.AttachComponent(pId, new Pursuit(new NavigatePursuit(pX, pY, prio, devRng)));
+            Console.WriteLine($"Entity {pId} now pursuing ({pX},{pY}) at priority {prio}");
+        }
+    }
     else
     {
-        Console.WriteLine("Unknown command. Try: look, tick [n], status, log, info <x> <y>, quit");
+        Console.WriteLine("Unknown command. Try: look, tick [n], bench <n>, stress [r] [w] [b], status, log, info <x> <y>, pursue <id> <x> <y> [priority], quit");
     }
 }
 
@@ -204,6 +228,13 @@ static void ShowCellInfo(int x, int y)
         {
             Energy e = World.GetComponent<Energy>(id);
             tags.Add($"Energy:{e.Current}/{e.Max}");
+        }
+        if (World.HasComponent<Pursuit>(id))
+        {
+            Pursuit p = World.GetComponent<Pursuit>(id);
+            string kind = p.current.GetType().Name;
+            string detail = p.current is NavigatePursuit np ? $"({np.goalX},{np.goalY})" : "";
+            tags.Add($"Pursuit:{kind}{detail} pri:{p.Priority}");
         }
         if (World.HasComponent<Melee>(id)) tags.Add("Melee");
         if (World.HasComponent<Walkable>(id)) tags.Add("Walkable");

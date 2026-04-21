@@ -111,6 +111,11 @@ public static class World
             if (HasComponent<Grappled>(id) && !GetComponent<Grappled>(id).IsStillValid(id))
                 DetachComponent<Grappled>(id);
 
+            // Pursuit cleanup: a completed pursuit detaches before reactive
+            // evaluation so the caller-behavior can fire fresh this tick.
+            if (HasComponent<Pursuit>(id) && GetComponent<Pursuit>(id).current.IsComplete(id))
+                DetachComponent<Pursuit>(id);
+
             // Grappled entities run only behaviors that opt in via ICanActWhenGrappled
             bool isGrappled = HasComponent<Grappled>(id);
 
@@ -127,9 +132,29 @@ public static class World
                 }
             }
 
-            // Only the winner changes world state this tick. Capture its cost —
-            // baseline 1 if no behavior ran (e.g. all declined).
-            int cost = winner?.Act(id) ?? 1;
+            // Decide who drives this tick: reactive winner, pursuit, or nobody.
+            // Grappled entities can't advance a pursuit (same as moving).
+            bool pursuitActive = !isGrappled && HasComponent<Pursuit>(id);
+            int cost;
+            if (winner != null && (!pursuitActive || bestPriority > GetComponent<Pursuit>(id).Priority))
+            {
+                // Reactive winner takes the tick (either no pursuit, or winner outranks it).
+                cost = winner.Act(id);
+                // Immediate pursuit: if Act just attached a pursuit and took no
+                // cost, let the pursuit take its first step this same tick.
+                if (cost == 0 && EntityExists(id) && HasComponent<Pursuit>(id))
+                    cost = GetComponent<Pursuit>(id).current.Step(id);
+            }
+            else if (pursuitActive)
+            {
+                // No preempting winner; the pursuit advances.
+                cost = GetComponent<Pursuit>(id).current.Step(id);
+            }
+            else
+            {
+                // Nothing wants to act; baseline cost 1.
+                cost = 1;
+            }
 
             // Push the entity's next action forward by period × cost. Skip if
             // the entity no longer exists — a behavior may have destroyed it.
@@ -547,6 +572,22 @@ public static class World
         }
 
         FlowField fresh = Algorithms.MultiSourceBFS(seeds, CanCreatureBeHere);
+        flowFieldCache[key] = fresh;
+        return fresh;
+    }
+
+    // ----------------------------------------------------------------------------
+    // Get this tick's flow field seeded from a single cell. The pathing
+    // primitive for NavigatePursuit — "one step toward (x, y)." Cache is
+    // keyed by (x, y) as a ValueTuple, so multiple consumers heading to the
+    // same goal cell share the same flood.
+    // ----------------------------------------------------------------------------
+    public static FlowField GetCellFlowField(int x, int y)
+    {
+        object key = (x, y);
+        if (flowFieldCache.TryGetValue(key, out FlowField? cached)) return cached;
+
+        FlowField fresh = Algorithms.MultiSourceBFS(new[] { (x, y) }, CanCreatureBeHere);
         flowFieldCache[key] = fresh;
         return fresh;
     }
