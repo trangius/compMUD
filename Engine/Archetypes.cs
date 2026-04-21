@@ -78,7 +78,7 @@ public static class Archetypes
         // the ecology fall out of diet declarations.
         World.AttachComponent(e, new Diet(Resources.Meat, Resources.Pelt) { hungerThreshold = 0.9 });
         World.AttachComponent(e, new Behaviors(
-            new ReturnToForestBehavior(),
+            new ReturnToForestBehavior(rng),
             new HuntBehavior(rng),
             new FeedBehavior(rng),
             new WanderBehavior(rng)

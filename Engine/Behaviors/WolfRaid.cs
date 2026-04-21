@@ -18,15 +18,23 @@ public class ReturnToForestBehavior : IBehavior
 {
     public int Priority => 25;
 
+    private Random rng;
+
     // Cached between WouldAct and Act
     private int cachedStepDx;
     private int cachedStepDy;
     private bool cachedOnTree;
 
+    public ReturnToForestBehavior(Random rng)
+    {
+        this.rng = rng;
+    }
+
     // ----------------------------------------------------------------------------
     // Only active for a raider that has killed. If already on a tree cell, cache
-    // "despawn on Act". Otherwise BFS to the nearest reachable tree and cache
-    // the first step along the shortest path. Unreachable trees → decline tick.
+    // "despawn on Act". Otherwise read the shared per-tick Tree flow field and
+    // cache the step toward the nearest reachable tree. Trees out of vision →
+    // decline tick.
     // ----------------------------------------------------------------------------
     public bool WouldAct(int id)
     {
@@ -47,29 +55,15 @@ public class ReturnToForestBehavior : IBehavior
             }
         }
 
-        // Flood reachable cells and pick the nearest tree
         int range = StatMath.VisionRange(id);
-        BFSResult bfs = Algorithms.BFS(pos.X, pos.Y, range, World.CanCreatureBeHere);
+        List<FlowField> fields = new List<FlowField> { World.GetComponentFlowField<Tree>() };
 
-        int bestDist = int.MaxValue;
-        (int x, int y) bestCell = (-1, -1);
-        foreach (int treeId in World.AllWithComponent<Tree>())
-        {
-            if (!World.HasComponent<Position>(treeId)) continue;
-            Position treePos = World.GetComponent<Position>(treeId);
-            if (!bfs.Reachable(treePos.X, treePos.Y)) continue;
-            int d = bfs.Distance(treePos.X, treePos.Y);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                bestCell = (treePos.X, treePos.Y);
-            }
-        }
-
-        if (bestDist == int.MaxValue) return false;
+        if (!FlowFieldHelper.PickNearestNeighborStep(pos.X, pos.Y, fields, range, rng, out FlowFieldStep step))
+            return false;
 
         cachedOnTree = false;
-        (cachedStepDx, cachedStepDy) = bfs.FirstStep(bestCell.x, bestCell.y);
+        cachedStepDx = step.stepDx;
+        cachedStepDy = step.stepDy;
         return true;
     }
 

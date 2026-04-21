@@ -525,4 +525,29 @@ public static class World
     // Key wrapper so "predators hunting X" caches separately from "members of
     // species X" in flowFieldCache. Equality is by the wrapped spawn delegate.
     private sealed record PredatorsHuntingKey(Func<int, int, int> PreySpawn);
+
+    // ----------------------------------------------------------------------------
+    // Get this tick's flow field seeded from every cell holding any entity
+    // with the given component. Used by ReturnToForest (<Tree>) — the generic
+    // shape covers any future marker component people might want to path
+    // toward (<Fire>, <Altar>, <Quest>, ...). Cache key is the Type so two
+    // different T's don't collide.
+    // ----------------------------------------------------------------------------
+    public static FlowField GetComponentFlowField<T>() where T : class
+    {
+        object key = typeof(T);
+        if (flowFieldCache.TryGetValue(key, out FlowField? cached)) return cached;
+
+        List<(int x, int y)> seeds = new List<(int, int)>();
+        foreach (int id in AllWithComponent<T>())
+        {
+            if (!HasComponent<Position>(id)) continue;
+            Position p = GetComponent<Position>(id);
+            seeds.Add((p.X, p.Y));
+        }
+
+        FlowField fresh = Algorithms.MultiSourceBFS(seeds, CanCreatureBeHere);
+        flowFieldCache[key] = fresh;
+        return fresh;
+    }
 }
